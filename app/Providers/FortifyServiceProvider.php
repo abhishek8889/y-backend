@@ -6,6 +6,7 @@ use App\Actions\Fortify\ResetUserPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
@@ -20,7 +21,7 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        Fortify::ignoreRoutes();
     }
 
     /**
@@ -31,6 +32,7 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();
+        $this->configureRoutes();
     }
 
     /**
@@ -78,6 +80,18 @@ class FortifyServiceProvider extends ServiceProvider
 
             return Limit::perMinute(5)->by($throttleKey);
         });
+    }
 
+    /**
+     * Register authentication routes, using AuthController for login.
+     */
+    private function configureRoutes(): void
+    {
+        Route::group([
+            'domain' => config('fortify.domain'),
+            'prefix' => config('fortify.prefix'),
+        ], function (): void {
+            $this->loadRoutesFrom(base_path('routes/fortify.php'));
+        });
     }
 }

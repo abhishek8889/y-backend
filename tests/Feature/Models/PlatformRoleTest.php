@@ -7,7 +7,7 @@ use InvalidArgumentException;
 
 test('attaches a platform permission to the role', function () {
     $role = PlatformRole::factory()->create();
-    $permission = Permission::factory()->named(PermissionEnum::OrganisationsSuspend)->create();
+    $permission = Permission::factory()->named(PermissionEnum::OrganisationsDelete)->create();
 
     $role->grantPermission($permission);
 

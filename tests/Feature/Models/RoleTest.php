@@ -19,7 +19,7 @@ test('attaches an organisation permission to the role', function () {
 
 test('rejects a platform permission', function () {
     $role = Role::factory()->create();
-    $permission = Permission::factory()->named(PermissionEnum::OrganisationsView)->create();
+    $permission = Permission::factory()->named(PermissionEnum::OrganisationsRead)->create();
 
     $role->grantPermission($permission);
 })->throws(InvalidArgumentException::class, 'Organisation roles may only receive organisation permissions.');

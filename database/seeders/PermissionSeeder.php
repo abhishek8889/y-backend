@@ -13,7 +13,11 @@ class PermissionSeeder extends Seeder
      */
     public function run(): void
     {
+        $names = [];
+
         foreach (PermissionEnum::cases() as $permission) {
+            $names[] = $permission->value;
+
             Permission::query()->updateOrCreate(
                 ['name' => $permission->value],
                 [
@@ -22,5 +26,7 @@ class PermissionSeeder extends Seeder
                 ],
             );
         }
+
+        Permission::query()->whereNotIn('name', $names)->delete();
     }
 }

@@ -18,7 +18,7 @@ test('organisation owners have organisation permissions without a staff role', f
 test('organisation owners do not receive platform permissions through an organisation check', function () {
     $organisation = Organisation::factory()->create();
 
-    expect($organisation->owner->hasOrganisationPermission($organisation, PermissionEnum::OrganisationsSuspend))->toBeFalse();
+    expect($organisation->owner->hasOrganisationPermission($organisation, PermissionEnum::OrganisationsDelete))->toBeFalse();
 });
 
 test('inactive organisation owners do not have organisation permissions', function () {
@@ -85,24 +85,24 @@ test('platform staff have a permission granted through a platform role', functio
     $user = User::factory()->create();
     $staff = PlatformStaff::factory()->for($user)->create();
     $role = PlatformRole::factory()->create();
-    $permission = Permission::factory()->named(PermissionEnum::OrganisationsSuspend)->create();
+    $permission = Permission::factory()->named(PermissionEnum::OrganisationsDelete)->create();
 
     $role->grantPermission($permission);
     $staff->assignRole($role);
 
-    expect($user->hasPlatformPermission(PermissionEnum::OrganisationsSuspend))->toBeTrue();
+    expect($user->hasPlatformPermission(PermissionEnum::OrganisationsDelete))->toBeTrue();
 });
 
 test('inactive platform staff do not have platform permissions', function () {
     $user = User::factory()->create();
     $staff = PlatformStaff::factory()->inactive()->for($user)->create();
     $role = PlatformRole::factory()->create();
-    $permission = Permission::factory()->named(PermissionEnum::OrganisationsSuspend)->create();
+    $permission = Permission::factory()->named(PermissionEnum::OrganisationsDelete)->create();
 
     $role->grantPermission($permission);
     $staff->assignRole($role);
 
-    expect($user->hasPlatformPermission(PermissionEnum::OrganisationsSuspend))->toBeFalse();
+    expect($user->hasPlatformPermission(PermissionEnum::OrganisationsDelete))->toBeFalse();
 });
 
 test('organisation staff do not receive platform permissions', function () {
@@ -115,5 +115,5 @@ test('organisation staff do not receive platform permissions', function () {
     $role->grantPermission($permission);
     $staff->assignRole($role);
 
-    expect($user->hasPlatformPermission(PermissionEnum::OrganisationsSuspend))->toBeFalse();
+    expect($user->hasPlatformPermission(PermissionEnum::OrganisationsDelete))->toBeFalse();
 });
