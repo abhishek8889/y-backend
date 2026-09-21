@@ -12,13 +12,19 @@ use Throwable;
 
 class JwtTokenService
 {
-    public function issue(User $user): string
+    /**
+     * @param  array{scope?: string|null, roles?: list<string>, organisation_id?: int|null}  $context
+     */
+    public function issue(User $user, array $context = []): string
     {
         $now = now()->timestamp;
 
         return JWT::encode([
             'iss' => config('app.url'),
             'sub' => (string) $user->id,
+            'scope' => $context['scope'] ?? null,
+            'roles' => $context['roles'] ?? [],
+            'organisation_id' => $context['organisation_id'] ?? null,
             'iat' => $now,
             'nbf' => $now,
             'exp' => $now + $this->expiresIn(),

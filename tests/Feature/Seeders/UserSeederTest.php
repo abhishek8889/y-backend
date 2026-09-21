@@ -1,6 +1,7 @@
 <?php
 
 use App\Enum\PermissionEnum;
+use App\Enum\PlatformRoleEnum;
 use App\Enum\StatusEnum;
 use App\Models\OrganiserStaff;
 use App\Models\User;
@@ -26,7 +27,7 @@ test('creates an active platform super admin user', function () {
     expect(Hash::isHashed($user->password))->toBeTrue();
     expect($user->platformStaff)->not->toBeNull();
     expect($user->platformStaff->status)->toBe(StatusEnum::ACTIVE);
-    expect($user->platformStaff->roles->pluck('name')->all())->toContain('Super Admin');
+    expect($user->platformStaff->roles->pluck('name')->all())->toContain(PlatformRoleEnum::SUPER_ADMIN->value);
     expect($user->hasPlatformPermission(PermissionEnum::OrganisationsRead))->toBeTrue();
     expect(OrganiserStaff::query()->where('user_id', $user->id)->exists())->toBeFalse();
 });

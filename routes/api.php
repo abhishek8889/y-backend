@@ -10,6 +10,13 @@ Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:login')
     ->name('login.store');
 
+Route::post('/organiser/register', [AuthController::class, 'registerOrganiser'])
+    ->name('organiser.register');
+
+Route::post('/organiser/verify-email', [AuthController::class, 'verifyOrganiserEmail'])
+    ->name('organiser.verify-email');
+
 Route::middleware('jwt')->get('/user', function (Request $request) {
     return ApiResponse::success(data: UserResource::make($request->user()));
 })->name('api.user');
+

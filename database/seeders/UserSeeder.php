@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enum\PlatformRoleEnum;
 use App\Enum\StatusEnum;
 use App\Models\PlatformRole;
 use App\Models\PlatformStaff;
@@ -50,7 +51,7 @@ class UserSeeder extends Seeder
             ['status' => StatusEnum::ACTIVE],
         );
 
-        $role = PlatformRole::query()->where('name', 'Super Admin')->firstOrFail();
+        $role = PlatformRole::query()->where('name', PlatformRoleEnum::SUPER_ADMIN)->firstOrFail();
 
         $staff->assignRole($role);
     }

@@ -7,7 +7,15 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @property-read array{user: User, access_token: string, token_type: string, expires_in: int} $resource
+ * @property-read array{
+ *     user: User,
+ *     access_token: string,
+ *     token_type: string,
+ *     expires_in: int,
+ *     scope: string|null,
+ *     roles: list<string>,
+ *     organisation_id: int|null
+ * } $resource
  */
 class LoginResource extends JsonResource
 {
@@ -20,7 +28,12 @@ class LoginResource extends JsonResource
             'access_token' => $this->resource['access_token'],
             'token_type' => $this->resource['token_type'],
             'expires_in' => $this->resource['expires_in'],
-            'user' => UserResource::make($this->resource['user']),
+            'user' => [
+                ...UserResource::make($this->resource['user'])->resolve(),
+                'scope' => $this->resource['scope'],
+                'roles' => $this->resource['roles'],
+                'organisation_id' => $this->resource['organisation_id'],
+            ],
         ];
     }
 }

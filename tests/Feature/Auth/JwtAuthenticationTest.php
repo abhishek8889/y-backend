@@ -1,7 +1,13 @@
 <?php
 
+use App\Enum\PermissionScopeEnum;
+use App\Enum\PlatformRoleEnum;
 use App\Enum\StatusEnum;
+use App\Models\PlatformRole;
+use App\Models\PlatformStaff;
 use App\Models\User;
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
 
 test('json clients receive a jwt access token', function () {
     $user = User::factory()->create();
@@ -22,11 +28,36 @@ test('json clients receive a jwt access token', function () {
                 'access_token',
                 'token_type',
                 'expires_in',
-                'user' => ['id', 'email'],
+                'user' => [
+                    'id',
+                    'email',
+                    'scope',
+                    'roles',
+                    'organisation_id',
+                ],
             ],
         ]);
 
     $this->assertGuest();
+});
+
+test('a jwt access token includes role and scope claims', function () {
+    $user = User::factory()->create();
+    $staff = PlatformStaff::factory()->for($user)->create();
+    $role = PlatformRole::factory()->create(['name' => PlatformRoleEnum::SUPER_ADMIN->value]);
+    $staff->assignRole($role);
+
+    $token = $this->postJson(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->json('data.access_token');
+
+    $payload = JWT::decode($token, new Key((string) config('jwt.secret'), (string) config('jwt.algo')));
+
+    expect($payload->sub)->toBe((string) $user->id);
+    expect($payload->scope)->toBe(PermissionScopeEnum::PLATFORM->value);
+    expect($payload->roles)->toEqual([PlatformRoleEnum::SUPER_ADMIN->value]);
+    expect($payload->organisation_id)->toBeNull();
 });
 
 test('a jwt access token can load the authenticated user', function () {

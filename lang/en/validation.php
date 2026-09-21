@@ -198,8 +198,15 @@ return [
     */
 
     'attributes' => [
+        'first_name' => 'first name',
+        'last_name' => 'last name',
         'email' => 'email',
+        'phone' => 'phone',
+        'country_code' => 'country code',
+        'country' => 'country',
         'password' => 'password',
+        'confirm_password' => 'confirm password',
+        'otp' => 'verification code',
     ],
 
 ];

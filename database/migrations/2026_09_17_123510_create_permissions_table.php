@@ -14,6 +14,7 @@ return new class extends Migration
     {
         Schema::create('permissions', function (Blueprint $table) {
             $table->id();
+            $table->string('module')->nullable();
             $table->string('name')->unique();
             $table->enum('scope', [
                 PermissionScopeEnum::PLATFORM->value,
@@ -22,6 +23,7 @@ return new class extends Migration
             $table->string('description')->nullable();
             $table->timestamps();
 
+            $table->index('module');
             $table->index('scope');
         });
     }

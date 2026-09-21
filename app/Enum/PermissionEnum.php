@@ -50,6 +50,11 @@ enum PermissionEnum: string
     // case RolesDelete = 'roles.delete';
     // case ReportsView = 'reports.view';
 
+    public function module(): string
+    {
+        return explode('.', $this->value, 2)[0];
+    }
+
     public function scope(): PermissionScopeEnum
     {
         return match ($this) {
@@ -135,6 +140,17 @@ enum PermissionEnum: string
         return array_values(array_filter(
             self::cases(),
             fn (self $permission): bool => $permission->scope() === $scope,
+        ));
+    }
+
+    /**
+     * @return list<self>
+     */
+    public static function forModule(string $module): array
+    {
+        return array_values(array_filter(
+            self::cases(),
+            fn (self $permission): bool => $permission->module() === $module,
         ));
     }
 }

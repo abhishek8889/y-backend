@@ -14,13 +14,14 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
+ * @property string|null $module
  * @property string $name
  * @property PermissionScopeEnum $scope
  * @property string|null $description
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'scope', 'description'])]
+#[Fillable(['module', 'name', 'scope', 'description'])]
 class Permission extends Model
 {
     /** @use HasFactory<PermissionFactory> */
@@ -62,5 +63,11 @@ class Permission extends Model
     protected function organisation(Builder $query): Builder
     {
         return $query->where('scope', PermissionScopeEnum::ORGANISATION);
+    }
+
+    #[Scope]
+    protected function forModule(Builder $query, string $module): Builder
+    {
+        return $query->where('module', $module);
     }
 }

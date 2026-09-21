@@ -2,6 +2,7 @@
 
 use App\Enum\PermissionEnum;
 use App\Enum\PermissionScopeEnum;
+use App\Enum\PlatformRoleEnum;
 use App\Models\Permission;
 use App\Models\PlatformRole;
 use Database\Seeders\PermissionSeeder;
@@ -13,6 +14,7 @@ test('seeds organisation crud permissions on the platform', function (Permission
     $row = Permission::query()->where('name', $permission->value)->first();
 
     expect($row)->not->toBeNull();
+    expect($row->module)->toBe('organisations');
     expect($row->scope)->toBe(PermissionScopeEnum::PLATFORM);
     expect($row->description)->toBe($description);
 })->with([
@@ -25,11 +27,14 @@ test('seeds organisation crud permissions on the platform', function (Permission
 test('creates a catalog row for each permission', function () {
     $this->seed(PermissionSeeder::class);
 
-    expect(Permission::query()->where('name', PermissionEnum::EventsCreate->value)->value('scope'))
-        ->toBe(PermissionScopeEnum::ORGANISATION);
-
     expect(Permission::query()->where('name', PermissionEnum::OrganisationsRead->value)->value('scope'))
         ->toBe(PermissionScopeEnum::PLATFORM);
+
+    expect(Permission::query()->where('name', PermissionEnum::PlatformSettingsUpdate->value)->value('module'))
+        ->toBe('platform');
+
+    expect(Permission::query()->forModule('organisations')->count())
+        ->toBe(count(PermissionEnum::forModule('organisations')));
 
     expect(Permission::query()->count())->toBe(count(PermissionEnum::cases()));
 });
@@ -48,13 +53,13 @@ test('gives the super admin role every platform permission', function () {
         PlatformRoleSeeder::class,
     ]);
 
-    $role = PlatformRole::query()->where('name', 'Super Admin')->first();
+    $role = PlatformRole::query()->where('name', PlatformRoleEnum::SUPER_ADMIN)->first();
 
     expect($role)->not->toBeNull();
-    expect($role->permissions->pluck('name')->all())
-        ->toContain(PermissionEnum::OrganisationsRead->value)
-        ->toContain(PermissionEnum::OrganisationsCreate->value)
-        ->toContain(PermissionEnum::OrganisationsUpdate->value)
-        ->toContain(PermissionEnum::OrganisationsDelete->value)
-        ->not->toContain(PermissionEnum::EventsCreate->value);
+    expect($role->permissions->pluck('name')->all())->toEqualCanonicalizing(
+        array_map(
+            fn (PermissionEnum $permission): string => $permission->value,
+            PermissionEnum::forScope(PermissionScopeEnum::PLATFORM),
+        ),
+    );
 });

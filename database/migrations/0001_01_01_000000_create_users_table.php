@@ -18,7 +18,9 @@ return new class extends Migration
             $table->string('last_name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->timestamp('phone')->nullable();
+            $table->string('phone', 30)->nullable();
+            $table->string('country_code', 10)->nullable();
+            $table->string('country')->nullable();
             $table->string('password');
             $table->enum('status', [StatusEnum::ACTIVE->value, StatusEnum::INACTIVE->value]);
             $table->rememberToken();

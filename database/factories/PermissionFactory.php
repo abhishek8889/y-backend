@@ -18,6 +18,7 @@ class PermissionFactory extends Factory
     public function definition(): array
     {
         return [
+            'module' => 'custom',
             'name' => fake()->unique()->bothify('custom.###??'),
             'scope' => PermissionScopeEnum::ORGANISATION,
             'description' => fake()->sentence(),
@@ -27,6 +28,7 @@ class PermissionFactory extends Factory
     public function named(PermissionEnum $permission): static
     {
         return $this->state(fn (array $attributes): array => [
+            'module' => $permission->module(),
             'name' => $permission->value,
             'scope' => $permission->scope(),
             'description' => $permission->description(),

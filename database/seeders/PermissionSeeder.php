@@ -21,6 +21,7 @@ class PermissionSeeder extends Seeder
             Permission::query()->updateOrCreate(
                 ['name' => $permission->value],
                 [
+                    'module' => $permission->module(),
                     'scope' => $permission->scope(),
                     'description' => $permission->description(),
                 ],

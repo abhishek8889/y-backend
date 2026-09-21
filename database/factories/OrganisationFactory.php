@@ -20,9 +20,16 @@ class OrganisationFactory extends Factory
         $name = fake()->unique()->company();
 
         return [
-            'name' => $name,
-            'slug' => Str::slug($name).'-'.fake()->unique()->numerify('###'),
             'owner_id' => User::factory(),
+            'unique_id' => (string) Str::ulid(),
+            'organiser_name' => fake()->name(),
+            'name' => $name,
+            'email' => fake()->unique()->companyEmail(),
+            'country_code' => '+44',
+            'phone' => fake()->numerify('7#########'),
+            'country' => 'GB',
+            'complete_status' => false,
+            'approve_status' => false,
         ];
     }
 }

@@ -1,5 +1,12 @@
 <?php
 
+use App\Enum\PermissionScopeEnum;
+use App\Enum\PlatformRoleEnum;
+use App\Models\Organisation;
+use App\Models\OrganiserStaff;
+use App\Models\PlatformRole;
+use App\Models\PlatformStaff;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\AuthService;
 use Illuminate\Support\Facades\Exceptions;
@@ -22,7 +29,10 @@ test('users can authenticate and receive a jwt access token', function () {
         ->assertJsonPath('message', __('auth.authenticated'))
         ->assertJsonPath('data.token_type', 'Bearer')
         ->assertJsonPath('data.user.id', $user->id)
-        ->assertJsonPath('data.user.email', $user->email);
+        ->assertJsonPath('data.user.email', $user->email)
+        ->assertJsonPath('data.user.scope', null)
+        ->assertJsonPath('data.user.roles', [])
+        ->assertJsonPath('data.user.organisation_id', null);
 
     $this->assertGuest();
 });
@@ -45,6 +55,50 @@ test('users with two factor enabled are redirected to two factor challenge', fun
     $response->assertRedirect(route('two-factor.login'));
     $response->assertSessionHas('login.id', $user->id);
     $this->assertGuest();
+});
+
+test('platform staff receive their role and platform scope', function () {
+    $user = User::factory()->create();
+    $staff = PlatformStaff::factory()->for($user)->create();
+    $role = PlatformRole::factory()->create(['name' => PlatformRoleEnum::SUPER_ADMIN->value]);
+    $staff->assignRole($role);
+
+    $this->postJson(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->assertOk()
+        ->assertJsonPath('data.user.scope', PermissionScopeEnum::PLATFORM->value)
+        ->assertJsonPath('data.user.roles', [PlatformRoleEnum::SUPER_ADMIN->value])
+        ->assertJsonPath('data.user.organisation_id', null);
+});
+
+test('organisation staff receive their role, organisation scope, and organisation id', function () {
+    $user = User::factory()->create();
+    $organisation = Organisation::factory()->create();
+    $staff = OrganiserStaff::factory()->for($organisation)->for($user)->create();
+    $role = Role::factory()->for($organisation)->create(['name' => 'event_manager']);
+    $staff->assignRole($role);
+
+    $this->postJson(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->assertOk()
+        ->assertJsonPath('data.user.scope', PermissionScopeEnum::ORGANISATION->value)
+        ->assertJsonPath('data.user.roles', ['event_manager'])
+        ->assertJsonPath('data.user.organisation_id', $organisation->id);
+});
+
+test('organisation owners receive organisation scope without a staff role', function () {
+    $organisation = Organisation::factory()->create();
+    $owner = $organisation->owner;
+
+    $this->postJson(route('login.store'), [
+        'email' => $owner->email,
+        'password' => 'password',
+    ])->assertOk()
+        ->assertJsonPath('data.user.scope', PermissionScopeEnum::ORGANISATION->value)
+        ->assertJsonPath('data.user.roles', [])
+        ->assertJsonPath('data.user.organisation_id', $organisation->id);
 });
 
 test('users cannot authenticate with invalid password', function () {

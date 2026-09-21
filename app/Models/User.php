@@ -22,7 +22,9 @@ use Illuminate\Support\Carbon;
  * @property string $last_name
  * @property string $email
  * @property Carbon|null $email_verified_at
- * @property Carbon|null $phone
+ * @property string|null $phone
+ * @property string|null $country_code
+ * @property string|null $country
  * @property string $password
  * @property StatusEnum $status
  * @property string|null $two_factor_secret
@@ -32,7 +34,17 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['first_name', 'last_name', 'email', 'password', 'phone', 'status'])]
+#[Fillable([
+    'first_name',
+    'last_name',
+    'email',
+    'password',
+    'phone',
+    'country_code',
+    'country',
+    'status',
+    'email_verified_at',
+])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -73,6 +85,57 @@ class User extends Authenticatable
     public function platformStaff(): HasOne
     {
         return $this->hasOne(PlatformStaff::class);
+    }
+
+    /**
+     * @return array{scope: string|null, roles: list<string>, organisation_id: int|null}
+     */
+    public function loginContext(): array
+    {
+        $this->loadMissing([
+            'platformStaff.roles',
+            'organiserStaff.roles',
+            'ownedOrganisations',
+        ]);
+
+        $platformStaff = $this->platformStaff;
+
+        if ($platformStaff !== null && $platformStaff->status === StatusEnum::ACTIVE) {
+            return [
+                'scope' => PermissionScopeEnum::PLATFORM->value,
+                'roles' => $platformStaff->roles->pluck('name')->values()->all(),
+                'organisation_id' => null,
+            ];
+        }
+
+        $staff = $this->organiserStaff
+            ->filter(fn (OrganiserStaff $membership): bool => $membership->status === StatusEnum::ACTIVE)
+            ->sortBy('id')
+            ->first();
+
+        if ($staff !== null) {
+            return [
+                'scope' => PermissionScopeEnum::ORGANISATION->value,
+                'roles' => $staff->roles->pluck('name')->values()->all(),
+                'organisation_id' => $staff->organisation_id,
+            ];
+        }
+
+        $organisation = $this->ownedOrganisations->sortBy('id')->first();
+
+        if ($organisation !== null) {
+            return [
+                'scope' => PermissionScopeEnum::ORGANISATION->value,
+                'roles' => [],
+                'organisation_id' => $organisation->id,
+            ];
+        }
+
+        return [
+            'scope' => null,
+            'roles' => [],
+            'organisation_id' => null,
+        ];
     }
 
     public function owns(Organisation $organisation): bool
