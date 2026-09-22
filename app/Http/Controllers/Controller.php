@@ -15,19 +15,22 @@ abstract class Controller
         return ApiResponse::success($message, $data, $status);
     }
 
-    protected function error(string $error, int $status = 400): JsonResponse
-    {
-        return ApiResponse::error($error, $status);
-    }
-
     protected function failed(Throwable $exception): JsonResponse
     {
         if ($exception instanceof ServiceException) {
-            return $this->error($exception->getMessage(), $exception->getStatusCode());
+            return ApiResponse::error(
+                $exception->getMessage(),
+                $exception->error,
+                $exception->getStatusCode(),
+            );
         }
 
         report($exception);
 
-        return $this->error(__('exceptions.server_error'), Response::HTTP_INTERNAL_SERVER_ERROR);
+        return ApiResponse::error(
+            __('exceptions.server_error'),
+            $exception->getMessage(),
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+        );
     }
 }

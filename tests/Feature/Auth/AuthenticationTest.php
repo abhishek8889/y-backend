@@ -109,6 +109,7 @@ test('users cannot authenticate with invalid password', function () {
         'password' => 'wrong-password',
     ])->assertUnprocessable()
         ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('auth.failed'))
         ->assertJsonPath('error', __('auth.failed'));
 
     $this->assertGuest();
@@ -126,7 +127,8 @@ test('json clients receive 500 when login fails unexpectedly', function () {
         'password' => 'password',
     ])->assertServerError()
         ->assertJsonPath('success', false)
-        ->assertJsonPath('error', __('exceptions.server_error'));
+        ->assertJsonPath('message', __('exceptions.server_error'))
+        ->assertJsonPath('error', 'Database unavailable.');
 
     Exceptions::assertReported(RuntimeException::class);
 });
@@ -141,6 +143,7 @@ test('json clients receive 500 when jwt secret is missing', function () {
         'password' => 'password',
     ])->assertServerError()
         ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('exceptions.jwt_not_configured'))
         ->assertJsonPath('error', __('exceptions.jwt_not_configured'));
 });
 
@@ -152,6 +155,7 @@ test('inactive users receive 403 when authenticating', function () {
         'password' => 'password',
     ])->assertForbidden()
         ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('auth.inactive'))
         ->assertJsonPath('error', __('auth.inactive'));
 
     $this->assertGuest();
@@ -161,6 +165,9 @@ test('login receives 422 when required fields are missing', function () {
     $this->postJson(route('login.store'), [])
         ->assertUnprocessable()
         ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('validation.required', [
+            'attribute' => __('validation.attributes.email'),
+        ]))
         ->assertJsonPath('error', __('validation.required', [
             'attribute' => __('validation.attributes.email'),
         ]));
@@ -172,6 +179,9 @@ test('login receives 422 when the email is invalid', function () {
         'password' => 'password',
     ])->assertUnprocessable()
         ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('validation.email', [
+            'attribute' => __('validation.attributes.email'),
+        ]))
         ->assertJsonPath('error', __('validation.email', [
             'attribute' => __('validation.attributes.email'),
         ]));
@@ -182,6 +192,9 @@ test('login receives 422 when the password is missing', function () {
         'email' => 'user@example.com',
     ])->assertUnprocessable()
         ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('validation.required', [
+            'attribute' => __('validation.attributes.password'),
+        ]))
         ->assertJsonPath('error', __('validation.required', [
             'attribute' => __('validation.attributes.password'),
         ]));

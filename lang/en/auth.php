@@ -29,6 +29,7 @@ return [
     'otp_mail_intro' => 'Hi :name, we\'ve sent a 6-character code to verify your account. Enter the code below:',
     'otp_mail_expiry' => 'Verification code expires in :minutes minutes.',
     'otp_mail_footer' => 'Check your spam folder if you can\'t find this email. If you did not create an account, you can ignore this message.',
+    'mail_failed' => 'Unable to send email.',
     'new_organiser_mail_subject' => 'New organiser registration pending review',
     'new_organiser_mail_heading' => 'New organiser registration',
     'new_organiser_mail_intro' => 'A new organiser has registered and is waiting for your review. Please review their profile and take action.',

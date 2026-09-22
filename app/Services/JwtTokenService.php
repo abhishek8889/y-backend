@@ -8,6 +8,7 @@ use Firebase\JWT\ExpiredException;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 class JwtTokenService
@@ -42,9 +43,17 @@ class JwtTokenService
         } catch (ServiceException $exception) {
             throw $exception;
         } catch (ExpiredException $exception) {
-            throw ServiceException::unauthorized(__('auth.token_expired'), $exception);
+            throw new ServiceException(
+                Response::HTTP_UNAUTHORIZED,
+                __('auth.token_expired'),
+                previous: $exception,
+            );
         } catch (Throwable $exception) {
-            throw ServiceException::unauthorized(__('auth.invalid_token'), $exception);
+            throw new ServiceException(
+                Response::HTTP_UNAUTHORIZED,
+                __('auth.invalid_token'),
+                previous: $exception,
+            );
         } finally {
             JWT::$timestamp = $previousTimestamp;
         }
@@ -62,7 +71,10 @@ class JwtTokenService
         $secret = config('jwt.secret');
 
         if (! is_string($secret) || $secret === '') {
-            throw ServiceException::serverError(__('exceptions.jwt_not_configured'));
+            throw new ServiceException(
+                Response::HTTP_INTERNAL_SERVER_ERROR,
+                __('exceptions.jwt_not_configured'),
+            );
         }
 
         return $secret;

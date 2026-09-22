@@ -11,7 +11,7 @@ use Illuminate\Database\Seeder;
 
 class UserSeeder extends Seeder
 {
-    public const string EMAIL = 'admin@example.com';
+    public const string EMAIL = 'developer.ashar@gmail.com';
 
     /**
      * Pre-hashed password. Do not store the plain-text value in this file.

@@ -2,11 +2,10 @@
 
 namespace App\Services;
 
+use App\Enum\MailSenderEnum;
 use App\Enum\PlatformRoleEnum;
 use App\Enum\RoleEnum;
 use App\Enum\StatusEnum;
-use App\Mail\NewOrganiserRegistrationMail;
-use App\Mail\OrganiserRegistrationOtpMail;
 use App\Models\Organisation;
 use App\Models\OrganiserRegistration;
 use App\Models\OrganiserStaff;
@@ -14,14 +13,17 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 
 class AuthService extends Service
 {
     private const int OTP_EXPIRES_IN_MINUTES = 10;
 
-    public function __construct(private JwtTokenService $jwt) {}
+    public function __construct(
+        private JwtTokenService $jwt,
+        private MailService $mail,
+    ) {}
 
     /**
      * @return array{
@@ -41,13 +43,11 @@ class AuthService extends Service
         $user = User::query()->where('email', $email)->first();
 
         if ($user === null || ! Hash::check($password, $user->getAuthPassword())) {
-            $this->unprocessable(__('auth.failed'), [
-                'email' => [__('auth.failed')],
-            ]);
+            $this->fail(Response::HTTP_UNPROCESSABLE_ENTITY, __('auth.failed'));
         }
 
         if ($user->status !== StatusEnum::ACTIVE) {
-            $this->forbidden(__('auth.inactive'));
+            $this->fail(Response::HTTP_FORBIDDEN, __('auth.inactive'));
         }
 
         $context = $user->loginContext();
@@ -72,7 +72,7 @@ class AuthService extends Service
         $email = Str::lower($data['email']);
 
         if (User::query()->where('email', $email)->exists()) {
-            $this->conflict(__('auth.email_already_registered'));
+            $this->fail(Response::HTTP_CONFLICT, __('auth.email_already_registered'));
         }
 
         $otp = Str::upper(Str::random(6));
@@ -92,12 +92,16 @@ class AuthService extends Service
             ],
         );
 
-        Mail::to($registration->email)->send(
-            new OrganiserRegistrationOtpMail(
-                $registration,
-                $otp,
-                self::OTP_EXPIRES_IN_MINUTES,
-            ),
+        $this->mail->send(
+            to: $registration->email,
+            subject: __('auth.otp_mail_subject'),
+            view: 'mail.organiser-registration-otp',
+            data: [
+                'registration' => $registration,
+                'otp' => $otp,
+                'otpExpiresInMinutes' => self::OTP_EXPIRES_IN_MINUTES,
+            ],
+            sentBy: MailSenderEnum::PLATFORM,
         );
 
         return [
@@ -127,21 +131,15 @@ class AuthService extends Service
         $registration = OrganiserRegistration::query()->where('email', $email)->first();
 
         if ($registration === null) {
-            $this->unprocessable(__('auth.registration_not_found'), [
-                'email' => [__('auth.registration_not_found')],
-            ]);
+            $this->fail(Response::HTTP_UNPROCESSABLE_ENTITY, __('auth.registration_not_found'));
         }
 
         if ($registration->otp === null || trim($registration->otp) !== trim($otp)) {
-            $this->unprocessable(__('auth.otp_invalid'), [
-                'otp' => [__('auth.otp_invalid')],
-            ]);
+            $this->fail(Response::HTTP_UNPROCESSABLE_ENTITY, __('auth.otp_invalid'));
         }
 
         if ($registration->otp_expired_at === null || $registration->otp_expired_at->isPast()) {
-            $this->unprocessable(__('auth.otp_expired'), [
-                'otp' => [__('auth.otp_expired')],
-            ]);
+            $this->fail(Response::HTTP_UNPROCESSABLE_ENTITY, __('auth.otp_expired'));
         }
 
         $registration->forceFill([
@@ -169,7 +167,7 @@ class AuthService extends Service
     public function organiserOnboarding(OrganiserRegistration $registration): array
     {
         if (User::query()->where('email', $registration->email)->exists()) {
-            $this->conflict(__('auth.email_already_registered'));
+            $this->fail(Response::HTTP_CONFLICT, __('auth.email_already_registered'));
         }
 
         /** @var array{user: User, organisation: Organisation} $created */
@@ -190,7 +188,7 @@ class AuthService extends Service
 
             $organisation = Organisation::query()->create([
                 'owner_id' => $user->id,
-                'unique_id' => 'ORG' . strtoupper(substr((string) Str::ulid(), 0, 5)),
+                'unique_id' => 'ORG'.strtoupper(substr((string) Str::ulid(), 0, 5)),
                 'organiser_name' => $displayName,
                 'name' => $displayName,
                 'email' => $registration->email,
@@ -255,8 +253,15 @@ class AuthService extends Service
             return;
         }
 
-        Mail::to($superAdminEmails)->send(
-            new NewOrganiserRegistrationMail($organiser, $organisation),
+        $this->mail->send(
+            to: $superAdminEmails,
+            subject: __('auth.new_organiser_mail_subject'),
+            view: 'mail.new-organiser-registration',
+            data: [
+                'organiser' => $organiser,
+                'organisation' => $organisation,
+            ],
+            sentBy: MailSenderEnum::PLATFORM,
         );
     }
 }

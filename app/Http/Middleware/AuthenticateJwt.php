@@ -23,13 +23,13 @@ class AuthenticateJwt
         $token = $request->bearerToken();
 
         if ($token === null || $token === '') {
-            throw ServiceException::unauthorized(__('auth.invalid_token'));
+            throw new ServiceException(Response::HTTP_UNAUTHORIZED, __('auth.invalid_token'));
         }
 
         $user = User::query()->find($this->jwt->userId($token));
 
         if ($user === null || $user->status !== StatusEnum::ACTIVE) {
-            throw ServiceException::unauthorized(__('auth.invalid_token'));
+            throw new ServiceException(Response::HTTP_UNAUTHORIZED, __('auth.invalid_token'));
         }
 
         Auth::setUser($user);

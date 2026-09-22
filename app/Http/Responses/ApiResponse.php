@@ -18,11 +18,12 @@ final class ApiResponse
         ], $status);
     }
 
-    public static function error(string $error, int $status = 400): JsonResponse
+    public static function error(string $message, ?string $error = null, int $status = 400): JsonResponse
     {
         return response()->json([
             'success' => false,
-            'error' => $error,
+            'message' => $message,
+            'error' => $error ?? $message,
         ], $status);
     }
 

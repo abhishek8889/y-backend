@@ -46,8 +46,8 @@ return Application::configure(basePath: dirname(__DIR__))
                 return false;
             }
 
-            $error = $exception->validator->errors()->first() ?: $exception->getMessage();
+            $message = $exception->validator->errors()->first() ?: $exception->getMessage();
 
-            return ApiResponse::error($error, $exception->status);
+            return ApiResponse::error($message, $message, $exception->status);
         });
     })->create();

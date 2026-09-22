@@ -81,6 +81,7 @@ test('json clients receive 401 when the access token is missing', function () {
     $this->getJson(route('api.user'))
         ->assertUnauthorized()
         ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('auth.invalid_token'))
         ->assertJsonPath('error', __('auth.invalid_token'));
 });
 
@@ -89,6 +90,7 @@ test('json clients receive 401 when the access token is invalid', function () {
         ->getJson(route('api.user'))
         ->assertUnauthorized()
         ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('auth.invalid_token'))
         ->assertJsonPath('error', __('auth.invalid_token'));
 });
 
@@ -108,6 +110,7 @@ test('json clients receive 401 when the access token has expired', function () {
         ->getJson(route('api.user'))
         ->assertUnauthorized()
         ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('auth.token_expired'))
         ->assertJsonPath('error', __('auth.token_expired'));
 });
 
@@ -125,5 +128,6 @@ test('json clients receive 401 when the access token belongs to an inactive user
         ->getJson(route('api.user'))
         ->assertUnauthorized()
         ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('auth.invalid_token'))
         ->assertJsonPath('error', __('auth.invalid_token'));
 });
