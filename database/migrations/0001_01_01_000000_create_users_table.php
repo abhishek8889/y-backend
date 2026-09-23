@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('country_code', 10)->nullable();
             $table->string('country')->nullable();
             $table->string('password');
+            $table->string('profile_image')->nullable();
             $table->enum('status', [StatusEnum::ACTIVE->value, StatusEnum::INACTIVE->value]);
             $table->rememberToken();
             $table->timestamps();

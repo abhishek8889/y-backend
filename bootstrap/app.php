@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Middleware\AuthenticateJwt;
+use App\Http\Middleware\EnsurePlatformPermission;
+use App\Http\Middleware\EnsurePlatformUser;
 use App\Http\Middleware\ForceJsonResponse;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -24,6 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'jwt' => AuthenticateJwt::class,
+            'platform' => EnsurePlatformUser::class,
+            'platform.permission' => EnsurePlatformPermission::class,
         ]);
 
         $middleware->api(prepend: [

@@ -26,6 +26,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $country_code
  * @property string|null $country
  * @property string $password
+ * @property string|null $profile_image
  * @property StatusEnum $status
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
@@ -42,6 +43,7 @@ use Illuminate\Support\Carbon;
     'phone',
     'country_code',
     'country',
+    'profile_image',
     'status',
     'email_verified_at',
 ])]
