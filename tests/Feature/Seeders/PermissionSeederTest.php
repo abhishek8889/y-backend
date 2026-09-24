@@ -22,6 +22,7 @@ test('seeds organisation crud permissions on the platform', function (Permission
     'create' => [PermissionEnum::OrganisationsCreate, 'Create organisation'],
     'update' => [PermissionEnum::OrganisationsUpdate, 'Update organisation'],
     'delete' => [PermissionEnum::OrganisationsDelete, 'Delete organisation'],
+    'manage_approve_status' => [PermissionEnum::OrganisationsManageApproveStatus, 'Manage organisation approve status'],
 ]);
 
 test('creates a catalog row for each permission', function () {

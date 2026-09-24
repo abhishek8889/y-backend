@@ -18,6 +18,9 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             PlatformRoleSeeder::class,
             UserSeeder::class,
+            VenueTypeSeeder::class,
+            FacilitySeeder::class,
+            VenueSuitableForOptionSeeder::class,
         ]);
     }
 }

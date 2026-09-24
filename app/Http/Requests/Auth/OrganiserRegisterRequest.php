@@ -20,6 +20,7 @@ class OrganiserRegisterRequest extends FormRequest
     public function rules(): array
     {
         return [
+            // Step 1 — personal
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'email' => [
@@ -33,6 +34,27 @@ class OrganiserRegisterRequest extends FormRequest
             'country' => ['required', 'string', 'max:100'],
             'password' => ['required', 'string', Password::defaults()],
             'confirm_password' => ['required', 'string', 'same:password'],
+
+            // Step 2 — organisation (`org_` mirrors organisations table)
+            'org_organiser_name' => ['nullable', 'string', 'max:255'],
+            'org_name' => ['required', 'string', 'max:255'],
+            'org_email' => ['nullable', 'string', 'email', 'max:255'],
+            'org_country_code' => ['nullable', 'string', 'max:10'],
+            'org_phone' => ['nullable', 'string', 'max:30'],
+            'org_country' => ['nullable', 'string', 'max:100'],
+            'org_city' => ['nullable', 'string', 'max:255'],
+            'org_address1' => ['nullable', 'string', 'max:255'],
+            'org_address2' => ['nullable', 'string', 'max:255'],
+            'org_postal_code' => ['nullable', 'string', 'max:255'],
+            'org_website' => ['nullable', 'string', 'max:255'],
+            'org_logo' => ['nullable', 'string', 'max:255'],
+            'org_banner' => ['nullable', 'string', 'max:255'],
+            'org_description' => ['nullable', 'string', 'max:255'],
+            'org_keywords' => ['nullable', 'string', 'max:255'],
+            'org_facebook_link' => ['nullable', 'string', 'max:255'],
+            'org_instagram_link' => ['nullable', 'string', 'max:255'],
+            'org_twitter_link' => ['nullable', 'string', 'max:255'],
+            'org_youtube_link' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -66,6 +88,10 @@ class OrganiserRegisterRequest extends FormRequest
             'confirm_password.required' => __('validation.required'),
             'confirm_password.string' => __('validation.string'),
             'confirm_password.same' => __('validation.same'),
+            'org_name.required' => __('validation.required'),
+            'org_name.string' => __('validation.string'),
+            'org_name.max' => __('validation.max.string'),
+            'org_email.email' => __('validation.email'),
         ];
     }
 
@@ -83,15 +109,26 @@ class OrganiserRegisterRequest extends FormRequest
             'country' => __('validation.attributes.country'),
             'password' => __('validation.attributes.password'),
             'confirm_password' => __('validation.attributes.confirm_password'),
+            'org_name' => 'organisation name',
+            'org_email' => 'organisation email',
+            'org_phone' => 'organisation phone',
         ];
     }
 
     protected function prepareForValidation(): void
     {
+        $merge = [];
+
         if ($this->has('email')) {
-            $this->merge([
-                'email' => Str::lower($this->string('email')->toString()),
-            ]);
+            $merge['email'] = Str::lower($this->string('email')->toString());
+        }
+
+        if ($this->filled('org_email')) {
+            $merge['org_email'] = Str::lower($this->string('org_email')->toString());
+        }
+
+        if ($merge !== []) {
+            $this->merge($merge);
         }
     }
 }

@@ -16,8 +16,8 @@ return new class extends Migration
             $table->foreignId('owner_id')
                 ->constrained('users')
                 ->cascadeOnDelete();
-            $table->string('unique_id')->unique();  
-            $table->string('organiser_name')->nullable();  
+            $table->string('unique_id')->unique();
+            $table->string('organiser_name')->nullable();
             $table->string('name');
             $table->string('email')->nullable();
             $table->string('country_code')->nullable();
@@ -38,6 +38,7 @@ return new class extends Migration
             $table->string('youtube_link')->nullable();
             $table->boolean('complete_status')->default(false);
             $table->boolean('approve_status')->default(false);
+            $table->string('approve_status_reason')->nullable();
             $table->timestamps();
         });
     }

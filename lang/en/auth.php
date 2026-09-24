@@ -34,6 +34,12 @@ return [
     'new_organiser_mail_heading' => 'New organiser registration',
     'new_organiser_mail_intro' => 'A new organiser has registered and is waiting for your review. Please review their profile and take action.',
     'new_organiser_mail_footer' => 'Log in to the platform admin panel to approve or reject this organiser.',
+    'new_organiser_mail_label_name' => 'Name',
+    'new_organiser_mail_label_email' => 'Email',
+    'new_organiser_mail_label_phone' => 'Phone',
+    'new_organiser_mail_label_address' => 'Address',
+    'new_organiser_mail_label_organisation_name' => 'Organisation name',
+    'new_organiser_mail_label_organisation_website' => 'Organisation website',
 
     'invalid_token' => 'Invalid access token.',
     'token_expired' => 'Access token has expired.',

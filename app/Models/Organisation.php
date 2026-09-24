@@ -35,6 +35,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $youtube_link
  * @property bool $complete_status
  * @property bool $approve_status
+ * @property string|null $approve_status_reason
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -62,6 +63,7 @@ use Illuminate\Support\Carbon;
     'youtube_link',
     'complete_status',
     'approve_status',
+    'approve_status_reason',
 ])]
 class Organisation extends Model
 {

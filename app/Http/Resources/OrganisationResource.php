@@ -35,6 +35,7 @@ class OrganisationResource extends JsonResource
             'description' => $this->description,
             'complete_status' => $this->complete_status,
             'approve_status' => $this->approve_status,
+            'approve_status_reason' => $this->approve_status_reason,
             'organiser' => $this->whenLoaded(
                 'owner',
                 fn () => UserResource::make($this->owner),

@@ -8,6 +8,7 @@ enum PermissionEnum: string
     case OrganisationsCreate = 'organisations.create';
     case OrganisationsUpdate = 'organisations.update';
     case OrganisationsDelete = 'organisations.delete';
+    case OrganisationsManageApproveStatus = 'organisations.manage_approve_status';
     // case UsersView = 'users.view';
     // case UsersUpdate = 'users.update';
     // case UsersSuspend = 'users.suspend';
@@ -62,6 +63,7 @@ enum PermissionEnum: string
             self::OrganisationsCreate,
             self::OrganisationsUpdate,
             self::OrganisationsDelete,
+            self::OrganisationsManageApproveStatus,
             // self::UsersView,
             // self::UsersUpdate,
             // self::UsersSuspend,
@@ -89,6 +91,7 @@ enum PermissionEnum: string
             self::OrganisationsCreate => 'Create organisation',
             self::OrganisationsUpdate => 'Update organisation',
             self::OrganisationsDelete => 'Delete organisation',
+            self::OrganisationsManageApproveStatus => 'Manage organisation approve status',
             // self::UsersView => 'View platform users',
             // self::UsersUpdate => 'Update platform users',
             // self::UsersSuspend => 'Suspend platform users',

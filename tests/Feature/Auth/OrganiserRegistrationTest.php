@@ -21,6 +21,9 @@ test('organiser registration sends an otp email from the platform', function () 
     $this->assertDatabaseHas('organiser_registrations', [
         'email' => 'ada@example.com',
         'otp' => 'ABCDEF',
+        'org_name' => 'Analytical Engines Ltd',
+        'org_email' => 'hello@engines.example',
+        'org_city' => 'London',
     ]);
 
     Mail::assertSent(AppMail::class, function (AppMail $mail): bool {
@@ -66,5 +69,13 @@ function organiserRegistrationPayload(): array
         'country' => 'US',
         'password' => 'password',
         'confirm_password' => 'password',
+        'org_organiser_name' => 'Ada Lovelace',
+        'org_name' => 'Analytical Engines Ltd',
+        'org_email' => 'hello@engines.example',
+        'org_country_code' => '+1',
+        'org_phone' => '5559876543',
+        'org_country' => 'US',
+        'org_city' => 'London',
+        'org_website' => 'https://engines.example',
     ];
 }

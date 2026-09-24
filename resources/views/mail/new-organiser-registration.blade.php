@@ -28,10 +28,36 @@
         }
 
         .copy {
-            margin: 0 0 8px;
+            margin: 0 0 24px;
             font-size: 15px;
             line-height: 1.5;
             text-align: center;
+            color: #222222;
+        }
+
+        .details {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0 0 24px;
+        }
+
+        .details th,
+        .details td {
+            padding: 8px 0;
+            font-size: 14px;
+            line-height: 1.5;
+            vertical-align: top;
+            text-align: left;
+        }
+
+        .details th {
+            width: 40%;
+            font-weight: 600;
+            color: #444444;
+            padding-right: 12px;
+        }
+
+        .details td {
             color: #222222;
         }
 
@@ -45,6 +71,18 @@
     </style>
 </head>
 <body>
+    @php
+        $fullName = trim($organiser->first_name.' '.$organiser->last_name);
+        $phone = trim(($organiser->country_code ?? '').' '.($organiser->phone ?? ''));
+        $addressParts = array_filter([
+            $organisation->address1,
+            $organisation->address2,
+            $organisation->city,
+            $organisation->postal_code,
+            $organisation->country,
+        ]);
+        $address = $addressParts === [] ? '—' : implode(', ', $addressParts);
+    @endphp
     <div class="card">
         <div style="padding: 28px 32px 24px; text-align: center;">
             <img
@@ -59,10 +97,41 @@
         <div style="padding: 36px 40px 32px;">
             <h1 class="heading">{{ __('auth.new_organiser_mail_heading') }}</h1>
             <p class="copy">{{ __('auth.new_organiser_mail_intro') }}</p>
-            <p class="copy"><strong>{{ $organiser->first_name }} {{ $organiser->last_name }}</strong></p>
-            <p class="muted">{{ $organiser->email }}</p>
-            <p class="muted">{{ $organisation->name }}</p>
-            <p class="muted" style="margin-top: 16px;">{{ __('auth.new_organiser_mail_footer') }}</p>
+
+            <table role="presentation" class="details" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <th>{{ __('auth.new_organiser_mail_label_name') }}</th>
+                    <td>{{ $fullName !== '' ? $fullName : '—' }}</td>
+                </tr>
+                <tr>
+                    <th>{{ __('auth.new_organiser_mail_label_email') }}</th>
+                    <td>{{ $organiser->email ?: '—' }}</td>
+                </tr>
+                <tr>
+                    <th>{{ __('auth.new_organiser_mail_label_phone') }}</th>
+                    <td>{{ $phone !== '' ? $phone : '—' }}</td>
+                </tr>
+                <tr>
+                    <th>{{ __('auth.new_organiser_mail_label_address') }}</th>
+                    <td>{{ $address }}</td>
+                </tr>
+                <tr>
+                    <th>{{ __('auth.new_organiser_mail_label_organisation_name') }}</th>
+                    <td>{{ $organisation->name ?: '—' }}</td>
+                </tr>
+                <tr>
+                    <th>{{ __('auth.new_organiser_mail_label_organisation_website') }}</th>
+                    <td>
+                        @if (filled($organisation->website))
+                            <a href="{{ $organisation->website }}" style="color: #222222;">{{ $organisation->website }}</a>
+                        @else
+                            —
+                        @endif
+                    </td>
+                </tr>
+            </table>
+
+            <p class="muted">{{ __('auth.new_organiser_mail_footer') }}</p>
         </div>
     </div>
 </body>
