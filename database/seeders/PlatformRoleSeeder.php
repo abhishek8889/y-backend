@@ -3,25 +3,20 @@
 namespace Database\Seeders;
 
 use App\Enum\PlatformRoleEnum;
-use App\Models\Permission;
 use App\Models\PlatformRole;
 use Illuminate\Database\Seeder;
 
 class PlatformRoleSeeder extends Seeder
 {
     /**
-     * Seed the default platform Super Admin role.
+     * Seed the default platform roles.
      */
     public function run(): void
     {
-        $role = PlatformRole::query()->firstOrCreate([
-            'name' => PlatformRoleEnum::SUPER_ADMIN->value,
-        ]);
-
-        $permissionIds = Permission::query()
-            ->platform()
-            ->pluck('id');
-
-        $role->permissions()->sync($permissionIds);
+        foreach (PlatformRoleEnum::cases() as $role) {
+            PlatformRole::query()->firstOrCreate([
+                'name' => $role->value,
+            ]);
+        }
     }
 }

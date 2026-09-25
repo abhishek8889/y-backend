@@ -6,6 +6,7 @@ use App\Enum\PlatformRoleEnum;
 use App\Models\Permission;
 use App\Models\PlatformRole;
 use Database\Seeders\PermissionSeeder;
+use Database\Seeders\PlatformRolePermissionSeeder;
 use Database\Seeders\PlatformRoleSeeder;
 
 test('seeds organisation crud permissions on the platform', function (PermissionEnum $permission, string $description) {
@@ -32,7 +33,7 @@ test('creates a catalog row for each permission', function () {
         ->toBe(PermissionScopeEnum::PLATFORM);
 
     expect(Permission::query()->where('name', PermissionEnum::PlatformSettingsUpdate->value)->value('module'))
-        ->toBe('platform');
+        ->toBe('settings');
 
     expect(Permission::query()->forModule('organisations')->count())
         ->toBe(count(PermissionEnum::forModule('organisations')));
@@ -52,6 +53,7 @@ test('gives the super admin role every platform permission', function () {
     $this->seed([
         PermissionSeeder::class,
         PlatformRoleSeeder::class,
+        PlatformRolePermissionSeeder::class,
     ]);
 
     $role = PlatformRole::query()->where('name', PlatformRoleEnum::SUPER_ADMIN)->first();

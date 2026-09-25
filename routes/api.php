@@ -38,7 +38,7 @@ Route::middleware('jwt')->group(function () {
     Route::get('/organisation/details', [OrganisationController::class, 'getOrganisationDetail']);
 
     Route::prefix('organisation')->group(function () {
-        Route::post('/venue/create', [VenueController::class, 'create']);
+        Route::post('/venue/create', [VenueController::class, 'create'])->middleware('platform.permission:venue.create');
     });
 
     // ################## Super Admin Platform Routes ##################

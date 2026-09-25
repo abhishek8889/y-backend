@@ -6,6 +6,7 @@ use App\Enum\StatusEnum;
 use App\Models\OrganiserStaff;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
+use Database\Seeders\PlatformRolePermissionSeeder;
 use Database\Seeders\PlatformRoleSeeder;
 use Database\Seeders\UserSeeder;
 use Illuminate\Support\Facades\Hash;
@@ -14,6 +15,7 @@ test('creates an active platform super admin user', function () {
     $this->seed([
         PermissionSeeder::class,
         PlatformRoleSeeder::class,
+        PlatformRolePermissionSeeder::class,
         UserSeeder::class,
     ]);
 
@@ -36,6 +38,7 @@ test('does not create a second super admin on reseed', function () {
     $this->seed([
         PermissionSeeder::class,
         PlatformRoleSeeder::class,
+        PlatformRolePermissionSeeder::class,
         UserSeeder::class,
         UserSeeder::class,
     ]);
