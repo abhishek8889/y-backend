@@ -1,7 +1,6 @@
 <?php
 
 use App\Enum\PermissionEnum;
-use App\Enum\PermissionScopeEnum;
 use App\Enum\RoleEnum;
 use App\Models\Organisation;
 use App\Models\Role;
@@ -27,7 +26,7 @@ test('assigns organisation permissions to owner roles by name', function () {
     expect($role->permissions->pluck('name')->all())->toEqualCanonicalizing(
         array_map(
             fn (PermissionEnum $permission): string => $permission->value,
-            PermissionEnum::forScope(PermissionScopeEnum::ORGANISATION),
+            RoleEnum::OWNER->defaultPermissions(),
         ),
     );
 });

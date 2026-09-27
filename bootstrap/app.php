@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AuthenticateJwt;
+use App\Http\Middleware\EnsureOrganisationPermission;
 use App\Http\Middleware\EnsurePlatformPermission;
 use App\Http\Middleware\EnsurePlatformUser;
 use App\Http\Middleware\ForceJsonResponse;
@@ -28,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'jwt' => AuthenticateJwt::class,
             'platform' => EnsurePlatformUser::class,
             'platform.permission' => EnsurePlatformPermission::class,
+            'organisation.permission' => EnsureOrganisationPermission::class,
         ]);
 
         $middleware->api(prepend: [

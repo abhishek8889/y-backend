@@ -2,6 +2,7 @@
 
 namespace App\Http\Responses;
 
+use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -16,6 +17,22 @@ final class ApiResponse
             'message' => $message,
             'data' => self::normalize($data ?? (object) []),
         ], $status);
+    }
+
+    /**
+     * Success response for cursor-paginated lists (shared shape for all list APIs).
+     */
+    public static function paginated(
+        ?string $message,
+        mixed $items,
+        CursorPaginator $paginator,
+        int $status = 200,
+    ): JsonResponse {
+        return self::success(
+            $message,
+            CursorPaginatedResponse::make($items, $paginator),
+            $status,
+        );
     }
 
     public static function error(string $message, ?string $error = null, int $status = 400): JsonResponse

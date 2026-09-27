@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             VenueTypeSeeder::class,
             FacilitySeeder::class,
             VenueSuitableForOptionSeeder::class,
+            EventCategorySeeder::class,
         ]);
     }
 }

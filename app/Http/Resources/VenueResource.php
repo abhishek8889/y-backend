@@ -33,6 +33,42 @@ class VenueResource extends JsonResource
             'status' => $this->status,
             'is_private_hire_available' => $this->is_private_hire_available,
             'private_hire_description' => $this->private_hire_description,
+            'address' => $this->whenLoaded(
+                'address',
+                fn () => $this->address !== null
+                    ? VenueAddressResource::make($this->address)
+                    : null,
+            ),
+            'contact' => $this->whenLoaded(
+                'contacts',
+                fn () => $this->contacts->isNotEmpty()
+                    ? VenueContactResource::make($this->contacts->first())
+                    : null,
+            ),
+            'accessibility' => $this->whenLoaded(
+                'accessibility',
+                fn () => $this->accessibility !== null
+                    ? VenueAccessibilityResource::make($this->accessibility)
+                    : null,
+            ),
+            'logistics' => $this->whenLoaded(
+                'logistics',
+                fn () => $this->logistics !== null
+                    ? VenueLogisticsResource::make($this->logistics)
+                    : null,
+            ),
+            'facilities' => $this->whenLoaded(
+                'facilities',
+                fn () => FacilityResource::collection($this->facilities),
+            ),
+            'suitable_for_options' => $this->whenLoaded(
+                'suitableForOptions',
+                fn () => VenueSuitableForOptionResource::collection($this->suitableForOptions),
+            ),
+            'images' => $this->whenLoaded(
+                'images',
+                fn () => VenueImageResource::collection($this->images),
+            ),
             'created_by' => $this->created_by,
             'updated_by' => $this->updated_by,
         ];

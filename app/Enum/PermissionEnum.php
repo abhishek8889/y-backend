@@ -14,6 +14,10 @@ enum PermissionEnum: string
     case VenuesCreate = 'venues.create';
     case VenuesUpdate = 'venues.update';
     case VenuesDelete = 'venues.delete';
+    case EventsRead = 'events.read';
+    case EventsCreate = 'events.create';
+    case EventsUpdate = 'events.update';
+    case EventsDelete = 'events.delete';
 
     public function module(): string
     {
@@ -33,7 +37,11 @@ enum PermissionEnum: string
             self::VenuesRead,
             self::VenuesCreate,
             self::VenuesUpdate,
-            self::VenuesDelete => PermissionScopeEnum::ORGANISATION,
+            self::VenuesDelete,
+            self::EventsRead,
+            self::EventsCreate,
+            self::EventsUpdate,
+            self::EventsDelete => PermissionScopeEnum::ORGANISATION,
         };
     }
 
@@ -50,6 +58,10 @@ enum PermissionEnum: string
             self::VenuesCreate => 'Create venue',
             self::VenuesUpdate => 'Update venue',
             self::VenuesDelete => 'Delete venue',
+            self::EventsRead => 'Read event',
+            self::EventsCreate => 'Create event',
+            self::EventsUpdate => 'Update event',
+            self::EventsDelete => 'Delete event',
         };
     }
 

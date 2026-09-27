@@ -31,7 +31,6 @@ class MailService extends Service
             $this->fail(
                 Response::HTTP_BAD_GATEWAY,
                 __('auth.mail_failed'),
-                $exception->getMessage(),
             );
         }
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Organisation;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organisation\StoreVenueRequest;
+use App\Http\Requests\Organisation\UpdateVenueRequest;
 use App\Http\Resources\FacilityResource;
 use App\Http\Resources\VenueResource;
 use App\Http\Resources\VenueSuitableForOptionResource;
@@ -26,6 +27,77 @@ class VenueController extends Controller
             return $this->success(
                 __('messages.venue_created'),
                 VenueResource::make($response['venue']),
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * Update a venue for the authenticated organiser's organisation.
+     */
+    public function update(UpdateVenueRequest $request, VenueService $venue, int $venue_id): JsonResponse
+    {
+        try {
+            $response = $venue->update($request->user(), $venue_id, $request->validated());
+
+            return $this->success(
+                __('messages.venue_updated'),
+                VenueResource::make($response['venue']),
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * Delete a venue for the authenticated organiser's organisation.
+     */
+    public function delete(Request $request, VenueService $venue, int $venue_id): JsonResponse
+    {
+        try {
+            $response = $venue->delete($request->user(), $venue_id);
+
+            return $this->success(
+                __('messages.venue_deleted'),
+                $response,
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * List venues for the authenticated organiser's organisation.
+     */
+    public function list(Request $request, VenueService $venue): JsonResponse
+    {
+        try {
+            $filters = [
+                'status' => $request->filled('status')
+                    ? $request->string('status')->toString()
+                    : null,
+                'venue_type_id' => $request->filled('venue_type_id')
+                    ? $request->integer('venue_type_id')
+                    : null,
+                'search' => $request->filled('search')
+                    ? $request->string('search')->toString()
+                    : null,
+                'per_page' => $request->filled('per_page')
+                    ? $request->integer('per_page')
+                    : null,
+                'cursor' => $request->filled('cursor')
+                    ? $request->string('cursor')->toString()
+                    : null,
+            ];
+
+            $response = $venue->list($request->user(), $filters);
+            $paginator = $response['paginator'];
+
+            return $this->successPaginated(
+                __('messages.venue_list'),
+                VenueResource::collection($paginator->items()),
+                $paginator,
             );
         } catch (Throwable $exception) {
             return $this->failed($exception);

@@ -2,53 +2,25 @@
 
 namespace Database\Seeders;
 
-use App\Enum\PermissionEnum;
-use App\Enum\PermissionScopeEnum;
 use App\Enum\RoleEnum;
-use App\Models\Permission;
 use App\Models\Role;
+use App\Services\Organisation\OrganisationRoleService;
 use Illuminate\Database\Seeder;
-use RuntimeException;
 
 class RolePermissionSeeder extends Seeder
 {
     /**
-     * Map organisation role names to permission names.
-     *
-     * @return array<string, list<string>>
-     */
-    private function matrix(): array
-    {
-        return [
-            RoleEnum::OWNER->value => array_map(
-                fn (PermissionEnum $permission): string => $permission->value,
-                PermissionEnum::forScope(PermissionScopeEnum::ORGANISATION),
-            ),
-        ];
-    }
-
-    /**
-     * Assign permissions to organisation roles by name.
+     * Re-sync default permissions onto existing organisation roles.
      */
     public function run(): void
     {
-        foreach ($this->matrix() as $roleName => $permissionNames) {
-            $permissionIds = Permission::query()
-                ->whereIn('name', $permissionNames)
-                ->pluck('id', 'name');
+        $roles = app(OrganisationRoleService::class);
 
-            foreach ($permissionNames as $permissionName) {
-                if (! $permissionIds->has($permissionName)) {
-                    throw new RuntimeException("Permission [{$permissionName}] was not found.");
-                }
-            }
-
-            $ids = $permissionIds->values()->all();
-
+        foreach (RoleEnum::cases() as $roleEnum) {
             Role::query()
-                ->where('name', $roleName)
-                ->each(function (Role $role) use ($ids): void {
-                    $role->permissions()->sync($ids);
+                ->where('name', $roleEnum->value)
+                ->each(function (Role $role) use ($roles, $roleEnum): void {
+                    $roles->syncDefaultPermissions($role, $roleEnum);
                 });
         }
     }

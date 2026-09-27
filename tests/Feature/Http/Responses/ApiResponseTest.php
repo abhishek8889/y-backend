@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Responses\ApiResponse;
+use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Support\Facades\Route;
 
 test('success responses include success true data and status code', function () {
@@ -36,5 +37,42 @@ test('error responses can include a separate developer error detail', function (
             'success' => false,
             'message' => 'Unable to send email.',
             'error' => 'SMTP failed.',
+        ]);
+});
+
+test('paginated responses use the shared cursor pagination data shape', function () {
+    $items = collect([(object) ['id' => 1]]);
+    $paginator = new CursorPaginator(
+        $items,
+        15,
+        null,
+        [
+            'parameters' => ['id'],
+            'path' => 'http://localhost/__api-response',
+        ],
+    );
+
+    Route::get('/__api-response', fn () => ApiResponse::paginated(
+        'List.',
+        [['id' => 1]],
+        $paginator,
+    ));
+
+    $this->getJson('/__api-response')
+        ->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('message', 'List.')
+        ->assertJsonPath('data.items.0.id', 1)
+        ->assertJsonPath('data.pagination.per_page', 15)
+        ->assertJsonStructure([
+            'data' => [
+                'items',
+                'pagination' => [
+                    'per_page',
+                    'next_cursor',
+                    'prev_cursor',
+                    'has_more',
+                ],
+            ],
         ]);
 });

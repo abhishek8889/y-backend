@@ -4,13 +4,13 @@ namespace App\Services;
 
 use App\Enum\MailSenderEnum;
 use App\Enum\PlatformRoleEnum;
-use App\Enum\RoleEnum;
 use App\Enum\StatusEnum;
 use App\Models\Organisation;
 use App\Models\OrganiserRegistration;
 use App\Models\OrganiserStaff;
-use App\Models\Role;
 use App\Models\User;
+use App\Services\Organisation\OrganisationRoleService;
+use App\Support\UniqueIdGenerator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -23,6 +23,7 @@ class AuthService extends Service
     public function __construct(
         private JwtTokenService $jwt,
         private MailService $mail,
+        private OrganisationRoleService $organisationRoles,
     ) {}
 
     /**
@@ -205,9 +206,16 @@ class AuthService extends Service
 
             $displayName = trim($registration->first_name.' '.$registration->last_name);
 
+            // Check random string on organisation table
+
+            $uniqueId = UniqueIdGenerator::generate('ORG');
+            while (Organisation::query()->where('unique_id', $uniqueId)->exists()) {
+                $uniqueId = UniqueIdGenerator::generate('ORG');
+            }
+
             $organisation = Organisation::query()->create([
                 'owner_id' => $user->id,
-                'unique_id' => 'ORG'.strtoupper(substr((string) Str::ulid(), 0, 5)),
+                'unique_id' => $uniqueId,
                 'organiser_name' => $registration->org_organiser_name ?? $displayName,
                 'name' => $registration->org_name ?? $displayName,
                 'email' => $registration->org_email ?? $registration->email,
@@ -231,10 +239,7 @@ class AuthService extends Service
                 'approve_status' => false,
             ]);
 
-            $role = Role::query()->create([
-                'organisation_id' => $organisation->id,
-                'name' => RoleEnum::OWNER->value,
-            ]);
+            $role = $this->organisationRoles->provisionDefaultRoles($organisation);
 
             $staff = OrganiserStaff::query()->create([
                 'organisation_id' => $organisation->id,

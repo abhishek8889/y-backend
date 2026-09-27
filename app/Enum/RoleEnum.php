@@ -13,4 +13,16 @@ enum RoleEnum: string
             self::OWNER => 'Owner',
         };
     }
+
+    /**
+     * Default permissions granted whenever this role is provisioned.
+     *
+     * @return list<PermissionEnum>
+     */
+    public function defaultPermissions(): array
+    {
+        return match ($this) {
+            self::OWNER => PermissionEnum::forScope(PermissionScopeEnum::ORGANISATION),
+        };
+    }
 }
