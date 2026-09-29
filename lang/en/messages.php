@@ -94,6 +94,7 @@ return [
     'stripe_api_error' => 'Unable to complete the Stripe request.',
     'stripe_connected_account_created' => 'Stripe connected account created successfully.',
     'stripe_connected_account_already_exists' => 'This organisation already has a Stripe connected account.',
+    'stripe_connected_account_not_found' => 'Stripe connected account not found for this organisation.',
     'stripe_organisation_email_required' => 'Organisation email is required to create a Stripe connected account.',
     'stripe_invalid_country' => 'A valid 2-letter country code is required for Stripe Connect.',
     'stripe_invalid_account_link_type' => 'Account link type must be account_onboarding or account_update.',
@@ -102,4 +103,8 @@ return [
     'stripe_external_accounts_synced' => 'Stripe external accounts synced successfully.',
     'stripe_onboarding_link_created' => 'Stripe onboarding link created successfully.',
     'stripe_update_link_created' => 'Stripe account update link created successfully.',
+    'stripe_webhook_received' => 'Stripe webhook received.',
+    'stripe_webhook_not_configured' => 'Stripe webhook secret is not configured. Set STRIPE_WEBHOOK_SECRET.',
+    'stripe_webhook_invalid_signature' => 'Invalid Stripe webhook signature.',
+    'stripe_webhook_invalid_payload' => 'Invalid Stripe webhook payload.',
 ];

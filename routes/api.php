@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Organisation\OrgStripeController;
 use App\Http\Controllers\Api\Organisation\VenueController;
 use App\Http\Controllers\Api\Platform\OrganisationController as PlatformOrganisationController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\Webhooks\Stripe\StripeAccountWebhook;
 use App\Http\Resources\UserResource;
 use App\Http\Responses\ApiResponse;
 use Illuminate\Http\Request;
@@ -22,6 +23,9 @@ Route::post('/organiser/register', [AuthController::class, 'registerOrganiser'])
 
 Route::post('/organiser/verify-email', [AuthController::class, 'verifyOrganiserEmail'])
     ->name('organiser.verify-email');
+
+Route::post('/account-webhooks', StripeAccountWebhook::class)
+    ->name('stripe.account-webhooks');
 
 // ################## Public Venue Option Lists ##################
 Route::prefix('venue')->group(function () {
@@ -78,12 +82,9 @@ Route::middleware('jwt')->group(function () {
 
         // ###### Organisation Stripe Connect Routes ######
         Route::prefix('stripe')->group(function () {
-            // Route::get('/account', [OrgStripeController::class, 'details']);
+            Route::post('/account/detail', [OrgStripeController::class, 'stripeAccountDetail']);
             Route::post('/account/create', [OrgStripeController::class, 'createConnectedAccount']);
-            // Route::post('/account/onboarding-link', [OrgStripeController::class, 'createOnboardingLink']);
-            // Route::post('/account/update-link', [OrgStripeController::class, 'createUpdateLink']);
-            // Route::post('/account/sync', [OrgStripeController::class, 'syncConnectedAccount']);
-            // Route::post('/account/external-accounts/sync', [OrgStripeController::class, 'syncExternalAccounts']);
+            Route::post('/account/onboarding-link', [OrgStripeController::class, 'createOnboardingLink']);
         });
     });
 

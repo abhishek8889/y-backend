@@ -56,69 +56,9 @@ class OrgStripeController extends Controller
     }
 
     /**
-     * Create an account-update link for bank / KYC updates.
+     * Return the organisation's Stripe Connected Account details.
      */
-    public function createUpdateLink(
-        Request $request,
-        StripeService $stripe,
-    ): JsonResponse {
-        try {
-            $stripeAccount = $stripe->resolveOrganisationStripeAccount($request->user())['stripe_account'];
-            $response = $stripe->createAccountUpdateLink($stripeAccount, $request->all());
-
-            return $this->success(
-                __('messages.stripe_update_link_created'),
-                $response,
-            );
-        } catch (Throwable $exception) {
-            return $this->failed($exception);
-        }
-    }
-
-    /**
-     * Sync the organisation's Stripe Connected Account from Stripe.
-     */
-    public function syncConnectedAccount(
-        Request $request,
-        StripeService $stripe,
-    ): JsonResponse {
-        try {
-            $stripeAccount = $stripe->resolveOrganisationStripeAccount($request->user())['stripe_account'];
-            $response = $stripe->syncConnectedAccount($stripeAccount);
-
-            return $this->success(
-                __('messages.stripe_connected_account_synced'),
-                $response['stripe_account'],
-            );
-        } catch (Throwable $exception) {
-            return $this->failed($exception);
-        }
-    }
-
-    /**
-     * Sync external bank accounts for the organisation's Stripe Connected Account.
-     */
-    public function syncExternalAccounts(
-        Request $request,
-        StripeService $stripe,
-    ): JsonResponse {
-        try {
-            $stripeAccount = $stripe->resolveOrganisationStripeAccount($request->user())['stripe_account'];
-            $response = $stripe->syncExternalAccounts($stripeAccount);
-
-            return $this->success(
-                __('messages.stripe_external_accounts_synced'),
-                $response['external_accounts'],
-            );
-        } catch (Throwable $exception) {
-            return $this->failed($exception);
-        }
-    }
-
-    /**
-     * Return the organisation's local Stripe Connected Account record.
-     */
-    public function details(
+    public function stripeAccountDetail(
         Request $request,
         StripeService $stripe,
     ): JsonResponse {
@@ -127,7 +67,7 @@ class OrgStripeController extends Controller
 
             return $this->success(
                 __('messages.stripe_connected_account_details'),
-                $response['stripe_account'],
+                $response['stripe_account']->load('externalAccounts'),
             );
         } catch (Throwable $exception) {
             return $this->failed($exception);

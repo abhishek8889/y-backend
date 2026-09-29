@@ -135,6 +135,14 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'stripe_webhook' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/stripe-webhook.log'),
+            'level' => env('LOG_STRIPE_WEBHOOK_LEVEL', 'debug'),
+            'max_files' => env('LOG_STRIPE_WEBHOOK_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];
