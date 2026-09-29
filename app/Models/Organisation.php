@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -17,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $organiser_name
  * @property string $name
  * @property string|null $email
+ * @property string|null $country_calling_code
  * @property string|null $country_code
  * @property string|null $phone
  * @property string|null $country
@@ -45,6 +47,7 @@ use Illuminate\Support\Carbon;
     'organiser_name',
     'name',
     'email',
+    'country_calling_code',
     'country_code',
     'phone',
     'country',
@@ -103,5 +106,13 @@ class Organisation extends Model
     public function roles(): HasMany
     {
         return $this->hasMany(Role::class);
+    }
+
+    /**
+     * @return HasOne<OrganisationStripeAccount, $this>
+     */
+    public function stripeAccount(): HasOne
+    {
+        return $this->hasOne(OrganisationStripeAccount::class);
     }
 }

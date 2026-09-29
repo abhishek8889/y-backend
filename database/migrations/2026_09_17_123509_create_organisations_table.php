@@ -20,7 +20,8 @@ return new class extends Migration
             $table->string('organiser_name')->nullable();
             $table->string('name');
             $table->string('email')->nullable();
-            $table->string('country_code')->nullable();
+            $table->string('country_calling_code')->nullable();
+            $table->string('country_code', 2)->nullable();
             $table->string('phone')->nullable();
             $table->string('country')->nullable();
             $table->string('city')->nullable();

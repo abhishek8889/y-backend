@@ -25,9 +25,10 @@ class OrganisationFactory extends Factory
             'organiser_name' => fake()->name(),
             'name' => $name,
             'email' => fake()->unique()->companyEmail(),
-            'country_code' => '+44',
+            'country_calling_code' => '+44',
+            'country_code' => 'GB',
             'phone' => fake()->numerify('7#########'),
-            'country' => 'GB',
+            'country' => 'United Kingdom',
             'complete_status' => false,
             'approve_status' => false,
         ];

@@ -32,7 +32,8 @@ return new class extends Migration
             $table->string('org_organiser_name')->nullable();
             $table->string('org_name')->nullable();
             $table->string('org_email')->nullable();
-            $table->string('org_country_code')->nullable();
+            $table->string('org_country_calling_code')->nullable();
+            $table->string('org_country_code', 2)->nullable();
             $table->string('org_phone')->nullable();
             $table->string('org_country')->nullable();
             $table->string('org_city')->nullable();

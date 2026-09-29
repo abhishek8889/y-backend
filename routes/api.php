@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\Organisation\EventController;
 use App\Http\Controllers\Api\Organisation\OrganisationController;
+use App\Http\Controllers\Api\Organisation\OrgStripeController;
 use App\Http\Controllers\Api\Organisation\VenueController;
 use App\Http\Controllers\Api\Platform\OrganisationController as PlatformOrganisationController;
 use App\Http\Controllers\Api\ProfileController;
@@ -74,6 +75,16 @@ Route::middleware('jwt')->group(function () {
         Route::get('/event/ticket/offer/list/{ticket_id}', [EventController::class, 'listTicketOffers'])->middleware('organisation.permission:events.read');
         Route::post('/event/ticket/offer/update/{offer_id}', [EventController::class, 'updateTicketOffer'])->middleware('organisation.permission:events.update');
         Route::delete('/event/ticket/offer/delete/{offer_id}', [EventController::class, 'deleteTicketOffer'])->middleware('organisation.permission:events.update');
+
+        // ###### Organisation Stripe Connect Routes ######
+        Route::prefix('stripe')->group(function () {
+            // Route::get('/account', [OrgStripeController::class, 'details']);
+            Route::post('/account/create', [OrgStripeController::class, 'createConnectedAccount']);
+            // Route::post('/account/onboarding-link', [OrgStripeController::class, 'createOnboardingLink']);
+            // Route::post('/account/update-link', [OrgStripeController::class, 'createUpdateLink']);
+            // Route::post('/account/sync', [OrgStripeController::class, 'syncConnectedAccount']);
+            // Route::post('/account/external-accounts/sync', [OrgStripeController::class, 'syncExternalAccounts']);
+        });
     });
 
     // ################## Super Admin Platform Routes ##################

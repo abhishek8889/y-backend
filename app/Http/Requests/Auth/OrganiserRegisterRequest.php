@@ -39,7 +39,8 @@ class OrganiserRegisterRequest extends FormRequest
             'org_organiser_name' => ['nullable', 'string', 'max:255'],
             'org_name' => ['required', 'string', 'max:255'],
             'org_email' => ['nullable', 'string', 'email', 'max:255'],
-            'org_country_code' => ['nullable', 'string', 'max:10'],
+            'org_country_calling_code' => ['required', 'string', 'max:10'],
+            'org_country_code' => ['required', 'string', 'size:2'],
             'org_phone' => ['nullable', 'string', 'max:30'],
             'org_country' => ['nullable', 'string', 'max:100'],
             'org_city' => ['nullable', 'string', 'max:255'],
@@ -92,6 +93,12 @@ class OrganiserRegisterRequest extends FormRequest
             'org_name.string' => __('validation.string'),
             'org_name.max' => __('validation.max.string'),
             'org_email.email' => __('validation.email'),
+            'org_country_calling_code.required' => __('validation.required'),
+            'org_country_calling_code.string' => __('validation.string'),
+            'org_country_calling_code.max' => __('validation.max.string'),
+            'org_country_code.required' => __('validation.required'),
+            'org_country_code.string' => __('validation.string'),
+            'org_country_code.size' => __('validation.size.string'),
         ];
     }
 
@@ -111,6 +118,8 @@ class OrganiserRegisterRequest extends FormRequest
             'confirm_password' => __('validation.attributes.confirm_password'),
             'org_name' => 'organisation name',
             'org_email' => 'organisation email',
+            'org_country_calling_code' => __('validation.attributes.org_country_calling_code'),
+            'org_country_code' => __('validation.attributes.org_country_code'),
             'org_phone' => 'organisation phone',
         ];
     }
@@ -125,6 +134,10 @@ class OrganiserRegisterRequest extends FormRequest
 
         if ($this->filled('org_email')) {
             $merge['org_email'] = Str::lower($this->string('org_email')->toString());
+        }
+
+        if ($this->filled('org_country_code')) {
+            $merge['org_country_code'] = Str::upper($this->string('org_country_code')->toString());
         }
 
         if ($merge !== []) {

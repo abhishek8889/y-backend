@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $org_organiser_name
  * @property string|null $org_name
  * @property string|null $org_email
+ * @property string|null $org_country_calling_code
  * @property string|null $org_country_code
  * @property string|null $org_phone
  * @property string|null $org_country
@@ -57,6 +58,7 @@ use Illuminate\Support\Carbon;
     'org_organiser_name',
     'org_name',
     'org_email',
+    'org_country_calling_code',
     'org_country_code',
     'org_phone',
     'org_country',
