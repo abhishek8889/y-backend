@@ -12,7 +12,7 @@ use Throwable;
 class OrganisationController extends Controller
 {
     /**
-     * Return organisation details for the authenticated user.
+     * Return the authenticated organiser's own organisation details.
      */
     public function getOrganisationDetail(Request $request, OrganisationService $organisation): JsonResponse
     {

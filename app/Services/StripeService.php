@@ -188,11 +188,9 @@ class StripeService extends Service
             );
         }
 
-        $stripeAccountDetails = $this->stripe()->accounts->retrieve($stripeAccount->stripe_account_id);
-        dd($stripeAccountDetails);
-
+        // $stripeAccountDetails = $this->stripe()->accounts->retrieve($stripeAccount->stripe_account_id);
         return [
-            'stripe_account' => $stripeAccountDetails,
+            'stripe_account' => $stripeAccount,
         ];
     }
 

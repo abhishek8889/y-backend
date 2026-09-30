@@ -14,6 +14,13 @@ enum RoleEnum: string
         };
     }
 
+    public function description(): string
+    {
+        return match ($this) {
+            self::OWNER => 'Full access to all organisation features.',
+        };
+    }
+
     /**
      * Default permissions granted whenever this role is provisioned.
      *

@@ -89,6 +89,14 @@ class StripeAccountWebhook extends Controller
      */
     private function dispatch(array $event): bool
     {
+        // ####################
+
+        Log::channel('stripe_webhook')->info('########### Stripe Webhook Data Event Received ###########', [
+            'event' => $event['data'],
+        ]);
+
+        //
+
         return match (true) {
             in_array($event['type'], ['account.updated', 'account.application.authorized'], true) => $this->syncAccountFromV1Object($event['data']),
 
@@ -612,6 +620,7 @@ class StripeAccountWebhook extends Controller
      */
     private function persistExternalAccountRow(OrganisationStripeAccount $stripeAccount, array $object): bool
     {
+
         $externalId = (string) ($object['id'] ?? '');
 
         if ($externalId === '') {

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\Organisation\EventController;
 use App\Http\Controllers\Api\Organisation\OrganisationController;
 use App\Http\Controllers\Api\Organisation\OrgStripeController;
+use App\Http\Controllers\Api\Organisation\RolePermissionController;
 use App\Http\Controllers\Api\Organisation\VenueController;
 use App\Http\Controllers\Api\Platform\OrganisationController as PlatformOrganisationController;
 use App\Http\Controllers\Api\ProfileController;
@@ -52,9 +53,10 @@ Route::middleware('jwt')->group(function () {
         Route::delete('/', [MediaController::class, 'delete'])->name('media.delete');
     });
 
-    Route::get('/organisation/details', [OrganisationController::class, 'getOrganisationDetail']);
+    Route::get('/my-org/details', [OrganisationController::class, 'getOrganisationDetail']);
 
-    Route::prefix('organisation')->group(function () {
+    // ################## Approved Organisation Routes ##################
+    Route::prefix('organisation')->middleware('organisation.approved')->group(function () {
         // ###### Venue Routes ######
         Route::get('/venue/list', [VenueController::class, 'list'])->middleware('organisation.permission:venues.read');
         Route::post('/venue/create', [VenueController::class, 'create'])->middleware('organisation.permission:venues.create');
@@ -85,6 +87,12 @@ Route::middleware('jwt')->group(function () {
             Route::post('/account/detail', [OrgStripeController::class, 'stripeAccountDetail']);
             Route::post('/account/create', [OrgStripeController::class, 'createConnectedAccount']);
             Route::post('/account/onboarding-link', [OrgStripeController::class, 'createOnboardingLink']);
+        });
+
+        // ########### Role & Permission Routes ###########
+        Route::prefix('role-permission')->group(function () {
+            Route::get('/permissions-list', [RolePermissionController::class, 'getAllOrganisationPermissions']);
+            Route::post('/create-role', [RolePermissionController::class, 'createRoleWithPermission']);
         });
     });
 

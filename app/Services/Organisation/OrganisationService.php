@@ -10,18 +10,18 @@ use Symfony\Component\HttpFoundation\Response;
 class OrganisationService extends Service
 {
     /**
-     * Get organisation details for the authenticated user.
-     *
-     * Business logic can be added here later.
+     * Get the authenticated organiser's organisation (from login context).
      *
      * @return array{organisation: Organisation}
      */
     public function getOrganisationDetail(User $user): array
     {
-        $organisationId = $user->loginContext()['organisation_id'];
+        $organisationId = $user->loginContext()['organisation_id'] ?? null;
 
         $organisation = $organisationId !== null
-            ? Organisation::query()->find($organisationId)
+            ? Organisation::query()
+                ->with('stripeAccount')
+                ->find($organisationId)
             : null;
 
         if ($organisation === null) {

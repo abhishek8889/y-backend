@@ -37,6 +37,10 @@ class OrganisationResource extends JsonResource
             'complete_status' => $this->complete_status,
             'approve_status' => $this->approve_status,
             'approve_status_reason' => $this->approve_status_reason,
+            'stripe_connect_account_created' => $this->when(
+                $this->relationLoaded('stripeAccount'),
+                fn (): bool => $this->stripeAccount !== null,
+            ),
             'organiser' => $this->whenLoaded(
                 'owner',
                 fn () => UserResource::make($this->owner),

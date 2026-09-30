@@ -18,6 +18,7 @@ return new class extends Migration
                 ->cascadeOnDelete();
 
             $table->string('name');
+            $table->text('description')->nullable();
             $table->timestamps();
 
             $table->unique(['organisation_id', 'name']);

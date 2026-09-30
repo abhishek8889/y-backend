@@ -19,10 +19,15 @@ class OrganisationRoleService extends Service
         $ownerRole = null;
 
         foreach (RoleEnum::cases() as $roleEnum) {
-            $role = Role::query()->firstOrCreate([
-                'organisation_id' => $organisation->id,
-                'name' => $roleEnum->value,
-            ]);
+            $role = Role::query()->updateOrCreate(
+                [
+                    'organisation_id' => $organisation->id,
+                    'name' => $roleEnum->value,
+                ],
+                [
+                    'description' => $roleEnum->description(),
+                ],
+            );
 
             $this->syncDefaultPermissions($role, $roleEnum);
 

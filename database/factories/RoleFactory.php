@@ -19,6 +19,7 @@ class RoleFactory extends Factory
         return [
             'organisation_id' => Organisation::factory(),
             'name' => fake()->unique()->jobTitle(),
+            'description' => fake()->optional()->sentence(),
         ];
     }
 }
