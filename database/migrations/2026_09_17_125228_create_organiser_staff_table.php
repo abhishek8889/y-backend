@@ -23,6 +23,8 @@ return new class extends Migration
                 ->constrained('users')
                 ->cascadeOnDelete();
 
+            $table->text('description')->nullable();
+
             $table->enum('status', [StatusEnum::ACTIVE->value, StatusEnum::INACTIVE->value])
                 ->default(StatusEnum::ACTIVE->value);
 

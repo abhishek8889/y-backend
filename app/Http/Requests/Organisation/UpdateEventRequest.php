@@ -18,14 +18,16 @@ class UpdateEventRequest extends FormRequest
      */
     public function rules(): array
     {
+        $nowUtc = now('UTC')->toDateTimeString();
+
         return [
             'name' => ['required', 'string', 'max:255'],
             'event_category_id' => ['nullable', 'integer', 'exists:event_categories,id'],
             'description' => ['nullable', 'string'],
             'venue_id' => ['nullable', 'integer', 'exists:venues,id'],
             'capacity' => ['nullable', 'integer', 'min:0'],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after:starts_at'],
+            'starts_at' => ['nullable', 'date', 'after_or_equal:'.$nowUtc],
+            'ends_at' => ['nullable', 'date', 'after:starts_at', 'after_or_equal:'.$nowUtc],
             'timezone' => ['nullable', 'string', 'max:100'],
 
             'images' => ['nullable', 'array'],
@@ -50,6 +52,17 @@ class UpdateEventRequest extends FormRequest
             'ends_at' => 'end date and time',
             'images.*.type' => 'image type',
             'images.*.path' => 'image path',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'starts_at.after_or_equal' => 'Event cannot be updated with a past date.',
+            'ends_at.after_or_equal' => 'Event cannot be updated with a past date.',
         ];
     }
 }

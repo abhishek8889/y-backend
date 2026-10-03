@@ -303,6 +303,10 @@ class EventService extends Service
         $event = $this->resolveOrganisationEvent($organisation->id, (int) $data['event_id']);
 
         $this->assertEventAllowsTicketChanges($event);
+        $this->assertTicketQuantityWithinEventCapacity(
+            $event,
+            (int) $data['quantity_cap'],
+        );
 
         try {
             /** @var EventTicket $ticket */
@@ -385,6 +389,12 @@ class EventService extends Service
         $this->assertEventAllowsTicketChanges($event);
 
         $quantityCap = (int) $data['quantity_cap'];
+        $this->assertTicketQuantityWithinEventCapacity(
+            $event,
+            $quantityCap,
+            $ticket->id,
+        );
+
         $offerQuantityTotal = (int) $ticket->offers()->sum('quantity_cap');
 
         if ($offerQuantityTotal > 0 && $quantityCap < $offerQuantityTotal) {
@@ -483,6 +493,10 @@ class EventService extends Service
             $ticket,
             (int) $data['quantity_cap'],
         );
+        $this->assertOfferSaleEndsBeforeEventStarts(
+            $event,
+            $data['sale_ends_at'] ?? null,
+        );
 
         try {
             /** @var EventTicketOffer $offer */
@@ -568,6 +582,10 @@ class EventService extends Service
             $ticket,
             (int) $data['quantity_cap'],
             $offer->id,
+        );
+        $this->assertOfferSaleEndsBeforeEventStarts(
+            $event,
+            $data['sale_ends_at'] ?? null,
         );
 
         try {
@@ -812,7 +830,36 @@ class EventService extends Service
     }
 
     /**
-     * Ensure offer quantities for a ticket never exceed the ticket quantity_cap in total.
+     * Ensure ticket quantities never exceed remaining event capacity:
+     * allowed = event.capacity - sum(other tickets' quantity_cap).
+     */
+    private function assertTicketQuantityWithinEventCapacity(
+        Event $event,
+        int $incomingQuantityCap,
+        ?int $excludeTicketId = null,
+    ): void {
+        if ($event->capacity === null) {
+            return;
+        }
+
+        $existingTotal = (int) $event->tickets()
+            ->when(
+                $excludeTicketId !== null,
+                fn ($query) => $query->whereKeyNot($excludeTicketId),
+            )
+            ->sum('quantity_cap');
+
+        if (($existingTotal + $incomingQuantityCap) > (int) $event->capacity) {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.event_ticket_quantity_exceeds_event_capacity'),
+            );
+        }
+    }
+
+    /**
+     * Ensure offer quantities never exceed remaining ticket quantity:
+     * allowed = ticket.quantity_cap - sum(other offers' quantity_cap).
      */
     private function assertOfferQuantityWithinTicketCap(
         EventTicket $ticket,
@@ -826,10 +873,29 @@ class EventService extends Service
             )
             ->sum('quantity_cap');
 
-        if (($existingTotal + $incomingQuantityCap) > $ticket->quantity_cap) {
+        if (($existingTotal + $incomingQuantityCap) > (int) $ticket->quantity_cap) {
             $this->fail(
                 Response::HTTP_UNPROCESSABLE_ENTITY,
                 __('messages.event_ticket_offer_quantity_exceeds_ticket'),
+            );
+        }
+    }
+
+    /**
+     * Ensure offer sale_ends_at is strictly before the event starts_at.
+     */
+    private function assertOfferSaleEndsBeforeEventStarts(
+        Event $event,
+        mixed $saleEndsAt,
+    ): void {
+        if ($saleEndsAt === null || $saleEndsAt === '' || $event->starts_at === null) {
+            return;
+        }
+
+        if (Carbon::parse($saleEndsAt)->gte($event->starts_at)) {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.event_ticket_offer_sale_ends_before_event_start'),
             );
         }
     }

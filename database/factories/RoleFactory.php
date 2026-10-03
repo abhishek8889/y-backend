@@ -16,9 +16,12 @@ class RoleFactory extends Factory
      */
     public function definition(): array
     {
+        $name = fake()->unique()->jobTitle();
+
         return [
             'organisation_id' => Organisation::factory(),
-            'name' => fake()->unique()->jobTitle(),
+            'name' => $name,
+            'slug' => Role::slugFromName($name),
             'description' => fake()->optional()->sentence(),
         ];
     }

@@ -10,21 +10,33 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
  * @property int $id
  * @property int $organisation_id
  * @property string $name
+ * @property string $slug
  * @property string|null $description
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['organisation_id', 'name', 'description'])]
+#[Fillable(['organisation_id', 'name', 'slug', 'description'])]
 class Role extends Model
 {
     /** @use HasFactory<RoleFactory> */
     use HasFactory;
+
+    /**
+     * Build a URL-safe slug from a role name.
+     */
+    public static function slugFromName(string $name): string
+    {
+        $slug = Str::slug($name);
+
+        return $slug !== '' ? $slug : 'role';
+    }
 
     /**
      * @return BelongsTo<Organisation, $this>

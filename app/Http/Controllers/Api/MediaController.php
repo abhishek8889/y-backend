@@ -14,7 +14,7 @@ use Throwable;
 class MediaController extends Controller
 {
     /**
-     * Upload media to the configured storage driver (local for now).
+     * Upload media to the configured storage driver.
      */
     public function upload(UploadMediaRequest $request, MediaService $media): JsonResponse
     {

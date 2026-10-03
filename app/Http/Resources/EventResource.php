@@ -19,6 +19,18 @@ class EventResource extends JsonResource
         return [
             'id' => $this->id,
             'organisation_id' => $this->organisation_id,
+            'organisation' => $this->whenLoaded(
+                'organisation',
+                fn () => $this->organisation !== null
+                    ? [
+                        'id' => $this->organisation->id,
+                        'unique_id' => $this->organisation->unique_id,
+                        'name' => $this->organisation->name,
+                        'logo' => $this->organisation->logo,
+                        'banner' => $this->organisation->banner,
+                    ]
+                    : null,
+            ),
             'unique_id' => $this->unique_id,
             'name' => $this->name,
             'event_category_id' => $this->event_category_id,

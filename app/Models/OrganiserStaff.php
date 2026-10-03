@@ -17,12 +17,13 @@ use InvalidArgumentException;
  * @property int $id
  * @property int $organisation_id
  * @property int $user_id
+ * @property string|null $description
  * @property StatusEnum $status
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
 #[Table('organiser_staff')]
-#[Fillable(['organisation_id', 'user_id', 'status'])]
+#[Fillable(['organisation_id', 'user_id', 'description', 'status'])]
 class OrganiserStaff extends Model
 {
     /** @use HasFactory<OrganiserStaffFactory> */

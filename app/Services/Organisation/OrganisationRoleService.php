@@ -25,6 +25,7 @@ class OrganisationRoleService extends Service
                     'name' => $roleEnum->value,
                 ],
                 [
+                    'slug' => Role::slugFromName($roleEnum->value),
                     'description' => $roleEnum->description(),
                 ],
             );

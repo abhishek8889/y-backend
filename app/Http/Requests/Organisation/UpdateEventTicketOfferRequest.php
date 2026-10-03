@@ -19,12 +19,14 @@ class UpdateEventTicketOfferRequest extends FormRequest
      */
     public function rules(): array
     {
+        $nowUtc = now('UTC')->toDateTimeString();
+
         return [
             'name' => ['required', 'string', 'max:255'],
             'price' => ['required', 'numeric', 'min:0'],
             'quantity_cap' => ['required', 'integer', 'min:1'],
-            'sale_starts_at' => ['nullable', 'date'],
-            'sale_ends_at' => ['nullable', 'date', 'after:sale_starts_at'],
+            'sale_starts_at' => ['nullable', 'date', 'after_or_equal:'.$nowUtc],
+            'sale_ends_at' => ['nullable', 'date', 'after:sale_starts_at', 'after_or_equal:'.$nowUtc],
             'max_per_order' => ['nullable', 'integer', 'min:1'],
             'access' => ['nullable', 'string', Rule::in(['public', 'private', 'invite_only'])],
             'status' => ['nullable', 'string', Rule::in(EventTicketOfferStatusEnum::values())],
@@ -44,6 +46,17 @@ class UpdateEventTicketOfferRequest extends FormRequest
             'sale_starts_at' => 'sale start',
             'sale_ends_at' => 'sale end',
             'status' => 'offer status',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'sale_starts_at.after_or_equal' => 'Offer cannot be updated with a past date.',
+            'sale_ends_at.after_or_equal' => 'Offer cannot be updated with a past date.',
         ];
     }
 }

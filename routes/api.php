@@ -6,9 +6,11 @@ use App\Http\Controllers\Api\Organisation\EventController;
 use App\Http\Controllers\Api\Organisation\OrganisationController;
 use App\Http\Controllers\Api\Organisation\OrgStripeController;
 use App\Http\Controllers\Api\Organisation\RolePermissionController;
+use App\Http\Controllers\Api\Organisation\StaffMemberController;
 use App\Http\Controllers\Api\Organisation\VenueController;
 use App\Http\Controllers\Api\Platform\OrganisationController as PlatformOrganisationController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\Public\EventController as PublicEventController;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripeAccountWebhook;
 use App\Http\Resources\UserResource;
 use App\Http\Responses\ApiResponse;
@@ -38,6 +40,14 @@ Route::prefix('venue')->group(function () {
 // ################## Public Event Option Lists ##################
 Route::prefix('event')->group(function () {
     Route::get('/categories', [EventController::class, 'getEventCategoryList']);
+});
+
+// ################## Public Customer Catalog (no auth) ##################
+Route::prefix('public')->group(function () {
+    Route::prefix('events')->group(function () {
+        Route::get('/list', [PublicEventController::class, 'list']);
+        Route::get('/details/{unique_id}', [PublicEventController::class, 'details']);
+    });
 });
 
 Route::middleware('jwt')->group(function () {
@@ -92,7 +102,19 @@ Route::middleware('jwt')->group(function () {
         // ########### Role & Permission Routes ###########
         Route::prefix('role-permission')->group(function () {
             Route::get('/permissions-list', [RolePermissionController::class, 'getAllOrganisationPermissions']);
+            Route::get('/get-role-list', [RolePermissionController::class, 'getRoleList']);
+            Route::get('/get-role-with-permissions/{role_slug}', [RolePermissionController::class, 'getRoleWithPermissions']);
             Route::post('/create-role', [RolePermissionController::class, 'createRoleWithPermission']);
+            Route::post('/update/{role_slug}', [RolePermissionController::class, 'updateRoleWithPermission']);
+        });
+
+        // ########### Staff Member Routes ###########
+        Route::prefix('staff-member')->group(function () {
+            Route::get('/list', [StaffMemberController::class, 'list']);
+            Route::get('/details/{member_id}', [StaffMemberController::class, 'details']);
+            Route::post('/create', [StaffMemberController::class, 'create']);
+            Route::post('/update/{member_id}', [StaffMemberController::class, 'update']);
+            Route::post('/manage-status/{member_id}', [StaffMemberController::class, 'manageStatus']);
         });
     });
 

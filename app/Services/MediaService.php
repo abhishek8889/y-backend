@@ -4,10 +4,16 @@ namespace App\Services;
 
 use App\Enum\MediaStorageDriverEnum;
 use App\Models\User;
+use Cloudinary;
+use Cloudinary\Api as CloudinaryApi;
+use Cloudinary\Api\Error as CloudinaryApiError;
+use Cloudinary\Error as CloudinaryError;
+use Cloudinary\Uploader as CloudinaryUploader;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class MediaService extends Service
 {
@@ -59,7 +65,7 @@ class MediaService extends Service
 
         match ($driver) {
             MediaStorageDriverEnum::LOCAL => $this->assertOwnedLocalTmpFile($user, $path),
-            MediaStorageDriverEnum::CLOUDINARY,
+            MediaStorageDriverEnum::CLOUDINARY => $this->assertOwnedCloudinaryTmpFile($user, $path),
             MediaStorageDriverEnum::AWS => $this->fail(
                 Response::HTTP_NOT_IMPLEMENTED,
                 __('messages.media_driver_not_implemented', [
@@ -80,7 +86,7 @@ class MediaService extends Service
 
         return match ($driver) {
             MediaStorageDriverEnum::LOCAL => $this->moveOwnedLocalTmpTo($user, $tmpPath, $destinationDirectory),
-            MediaStorageDriverEnum::CLOUDINARY,
+            MediaStorageDriverEnum::CLOUDINARY => $this->moveOwnedCloudinaryTmpTo($user, $tmpPath, $destinationDirectory),
             MediaStorageDriverEnum::AWS => $this->fail(
                 Response::HTTP_NOT_IMPLEMENTED,
                 __('messages.media_driver_not_implemented', [
@@ -102,6 +108,24 @@ class MediaService extends Service
     }
 
     /**
+     * Public delivery URL for a stored media path.
+     */
+    public function url(string $path): string
+    {
+        $path = ltrim($path, '/');
+
+        if ($path === '') {
+            return '';
+        }
+
+        return match (MediaStorageDriverEnum::fromConfig()) {
+            MediaStorageDriverEnum::LOCAL => Storage::disk((string) config('media.local_disk', 'public'))->url($path),
+            MediaStorageDriverEnum::CLOUDINARY => $this->cloudinaryUrl($path),
+            MediaStorageDriverEnum::AWS => Storage::disk((string) config('media.aws.disk', 's3'))->url($path),
+        };
+    }
+
+    /**
      * Delete a stored media file (tmp or permanent). Ignores missing files.
      */
     public function deleteStoredFile(string $path): void
@@ -119,7 +143,7 @@ class MediaService extends Service
 
         match ($driver) {
             MediaStorageDriverEnum::LOCAL => Storage::disk((string) config('media.local_disk', 'public'))->delete($path),
-            MediaStorageDriverEnum::CLOUDINARY,
+            MediaStorageDriverEnum::CLOUDINARY => $this->deleteCloudinaryPath($path, ignoreMissing: true),
             MediaStorageDriverEnum::AWS => $this->fail(
                 Response::HTTP_NOT_IMPLEMENTED,
                 __('messages.media_driver_not_implemented', [
@@ -137,6 +161,27 @@ class MediaService extends Service
         $disk = (string) config('media.local_disk', 'public');
 
         if (! Storage::disk($disk)->exists($path)) {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.media_not_found'),
+            );
+        }
+    }
+
+    private function assertOwnedCloudinaryTmpFile(User $user, string $path): void
+    {
+        $path = ltrim($path, '/');
+        $this->assertOwnedTmpPath($user, $path);
+        $this->configureCloudinary();
+
+        try {
+            (new CloudinaryApi)->resource(
+                $this->cloudinaryPublicId($path),
+                [
+                    'resource_type' => $this->cloudinaryResourceTypeFromPath($path),
+                ],
+            );
+        } catch (CloudinaryApiError) {
             $this->fail(
                 Response::HTTP_UNPROCESSABLE_ENTITY,
                 __('messages.media_not_found'),
@@ -175,6 +220,66 @@ class MediaService extends Service
         return [
             'path' => $destinationPath,
             'url' => Storage::disk($disk)->url($destinationPath),
+        ];
+    }
+
+    /**
+     * @return array{path: string, url: string}
+     */
+    private function moveOwnedCloudinaryTmpTo(User $user, string $tmpPath, string $destinationDirectory): array
+    {
+        $tmpPath = ltrim($tmpPath, '/');
+        $this->assertOwnedCloudinaryTmpFile($user, $tmpPath);
+
+        $destinationDirectory = trim($destinationDirectory, '/');
+        $filename = basename($tmpPath);
+        $destinationPath = $destinationDirectory.'/'.$filename;
+        $resourceType = $this->cloudinaryResourceTypeFromPath($tmpPath);
+
+        $this->configureCloudinary();
+
+        try {
+            // Do not pass overwrite=false — the Cloudinary PHP SDK signs it incorrectly.
+            $result = CloudinaryUploader::rename(
+                $this->cloudinaryPublicId($tmpPath),
+                $this->cloudinaryPublicId($destinationPath),
+                [
+                    'resource_type' => $resourceType,
+                ],
+            );
+        } catch (CloudinaryError|CloudinaryApiError $exception) {
+            if ($this->isCloudinaryAlreadyExists($exception)) {
+                $extension = pathinfo($filename, PATHINFO_EXTENSION);
+                $filename = Str::lower((string) Str::ulid()).($extension !== '' ? '.'.$extension : '');
+                $destinationPath = $destinationDirectory.'/'.$filename;
+
+                try {
+                    $result = CloudinaryUploader::rename(
+                        $this->cloudinaryPublicId($tmpPath),
+                        $this->cloudinaryPublicId($destinationPath),
+                        [
+                            'resource_type' => $resourceType,
+                        ],
+                    );
+                } catch (Throwable) {
+                    $this->fail(
+                        Response::HTTP_INTERNAL_SERVER_ERROR,
+                        __('messages.media_move_failed'),
+                    );
+                }
+            } else {
+                $this->fail(
+                    Response::HTTP_INTERNAL_SERVER_ERROR,
+                    __('messages.media_move_failed'),
+                );
+            }
+        }
+
+        return [
+            'path' => $destinationPath,
+            'url' => $result['secure_url']
+                ?? $result['url']
+                ?? $this->cloudinaryUrl($destinationPath, $resourceType),
         ];
     }
 
@@ -250,12 +355,37 @@ class MediaService extends Service
      */
     private function uploadToCloudinary(User $user, UploadedFile $file, ?string $context): array
     {
-        $this->fail(
-            Response::HTTP_NOT_IMPLEMENTED,
-            __('messages.media_driver_not_implemented', [
-                'driver' => MediaStorageDriverEnum::CLOUDINARY->value,
-            ]),
-        );
+        $this->configureCloudinary();
+
+        $directory = $this->tmpDirectoryFor($user, $context);
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin');
+        $filename = Str::lower((string) Str::ulid()).'.'.$extension;
+        $path = $directory.'/'.$filename;
+        $resourceType = $this->cloudinaryResourceType($extension, $file->getClientMimeType());
+
+        try {
+            $result = CloudinaryUploader::upload($file->getRealPath(), [
+                'public_id' => $this->cloudinaryPublicId($path),
+                'resource_type' => $resourceType,
+                'overwrite' => false,
+            ]);
+        } catch (Throwable) {
+            $this->fail(
+                Response::HTTP_INTERNAL_SERVER_ERROR,
+                __('messages.media_upload_failed'),
+            );
+        }
+
+        return [
+            'path' => $path,
+            'url' => $result['secure_url']
+                ?? $result['url']
+                ?? $this->cloudinaryUrl($path, $resourceType),
+            'mime' => $file->getClientMimeType(),
+            'size' => (int) ($result['bytes'] ?? $file->getSize() ?: 0),
+            'original_name' => $file->getClientOriginalName(),
+            'driver' => MediaStorageDriverEnum::CLOUDINARY->value,
+        ];
     }
 
     /**
@@ -263,12 +393,50 @@ class MediaService extends Service
      */
     private function deleteFromCloudinary(User $user, string $path): array
     {
-        $this->fail(
-            Response::HTTP_NOT_IMPLEMENTED,
-            __('messages.media_driver_not_implemented', [
-                'driver' => MediaStorageDriverEnum::CLOUDINARY->value,
-            ]),
-        );
+        $path = ltrim($path, '/');
+        $this->assertOwnedTmpPath($user, $path);
+        $this->deleteCloudinaryPath($path, ignoreMissing: false);
+
+        return [
+            'path' => $path,
+        ];
+    }
+
+    private function deleteCloudinaryPath(string $path, bool $ignoreMissing): void
+    {
+        $this->configureCloudinary();
+
+        try {
+            $result = CloudinaryUploader::destroy(
+                $this->cloudinaryPublicId($path),
+                [
+                    'resource_type' => $this->cloudinaryResourceTypeFromPath($path),
+                    'invalidate' => true,
+                ],
+            );
+
+            $status = (string) ($result['result'] ?? '');
+
+            if ($status === 'not found' && ! $ignoreMissing) {
+                $this->fail(
+                    Response::HTTP_NOT_FOUND,
+                    __('messages.media_not_found'),
+                );
+            }
+        } catch (Throwable $exception) {
+            if ($ignoreMissing) {
+                return;
+            }
+
+            if ($exception instanceof CloudinaryApiError || $exception instanceof CloudinaryError) {
+                $this->fail(
+                    Response::HTTP_NOT_FOUND,
+                    __('messages.media_not_found'),
+                );
+            }
+
+            throw $exception;
+        }
     }
 
     /**
@@ -302,6 +470,88 @@ class MediaService extends Service
                 'driver' => MediaStorageDriverEnum::AWS->value,
             ]),
         );
+    }
+
+    private function configureCloudinary(): void
+    {
+        $cloudName = trim((string) config('media.cloudinary.cloud_name'));
+        $apiKey = trim((string) config('media.cloudinary.api_key'));
+        $apiSecret = trim((string) config('media.cloudinary.api_secret'));
+
+        if ($cloudName === '' || $apiKey === '' || $apiSecret === '') {
+            $this->fail(
+                Response::HTTP_INTERNAL_SERVER_ERROR,
+                __('messages.media_cloudinary_not_configured'),
+            );
+        }
+
+        Cloudinary::config([
+            'cloud_name' => $cloudName,
+            'api_key' => $apiKey,
+            'api_secret' => $apiSecret,
+            'secure' => (bool) config('media.cloudinary.secure', true),
+        ]);
+    }
+
+    private function cloudinaryFolder(): string
+    {
+        return trim((string) config('media.cloudinary.folder', 'yourlist'), '/');
+    }
+
+    /**
+     * Cloudinary public_id for a stored relative path (no file extension).
+     */
+    private function cloudinaryPublicId(string $path): string
+    {
+        $path = ltrim($path, '/');
+        $directory = trim((string) pathinfo($path, PATHINFO_DIRNAME), '.');
+        $filename = (string) pathinfo($path, PATHINFO_FILENAME);
+        $relative = $directory !== '' ? $directory.'/'.$filename : $filename;
+        $folder = $this->cloudinaryFolder();
+
+        return $folder !== '' ? $folder.'/'.$relative : $relative;
+    }
+
+    private function cloudinaryUrl(string $path, ?string $resourceType = null): string
+    {
+        $this->configureCloudinary();
+
+        $resourceType ??= $this->cloudinaryResourceTypeFromPath($path);
+        $extension = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+
+        return (string) cloudinary_url($this->cloudinaryPublicId($path), [
+            'secure' => (bool) config('media.cloudinary.secure', true),
+            'resource_type' => $resourceType,
+            'format' => $extension !== '' ? $extension : null,
+        ]);
+    }
+
+    private function cloudinaryResourceTypeFromPath(string $path): string
+    {
+        $extension = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+
+        return $this->cloudinaryResourceType($extension, null);
+    }
+
+    private function cloudinaryResourceType(string $extension, ?string $mime): string
+    {
+        $extension = strtolower($extension);
+        $videoMimes = array_map('strtolower', config('media.video_mimes', []));
+        $mime = strtolower((string) $mime);
+
+        if (in_array($extension, $videoMimes, true) || str_starts_with($mime, 'video/')) {
+            return 'video';
+        }
+
+        return 'image';
+    }
+
+    private function isCloudinaryAlreadyExists(Throwable $exception): bool
+    {
+        $message = strtolower($exception->getMessage());
+
+        return str_contains($message, 'already exists')
+            || str_contains($message, 'already_exists');
     }
 
     private function tmpDirectoryFor(User $user, ?string $context): string

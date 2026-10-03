@@ -8,8 +8,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Supported: local, cloudinary, aws
-    | Only "local" is implemented today. Switch via MEDIA_DRIVER when cloud
-    | adapters are added — callers should not change.
+    | Switch via MEDIA_DRIVER. Callers should not change.
     |
     */
 
@@ -25,7 +24,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Temporary upload directory (relative to disk root)
+    | Temporary upload directory (relative to disk / cloud folder root)
     |--------------------------------------------------------------------------
     */
 
@@ -55,14 +54,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Future cloud driver placeholders
+    | Cloudinary
     |--------------------------------------------------------------------------
+    |
+    | All assets are stored under the configured folder (e.g. yourlist/...).
+    | DB paths stay relative without that folder prefix.
+    |
     */
 
     'cloudinary' => [
         'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
         'api_key' => env('CLOUDINARY_API_KEY'),
         'api_secret' => env('CLOUDINARY_API_SECRET'),
+        'folder' => env('CLOUDINARY_FOLDER', 'yourlist'),
+        'secure' => (bool) env('CLOUDINARY_SECURE', true),
     ],
 
     'aws' => [
