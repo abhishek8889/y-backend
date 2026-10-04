@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Organisation;
 use App\Models\User;
 
 test('authenticated users can fetch profile details', function () {
@@ -10,8 +11,9 @@ test('authenticated users can fetch profile details', function () {
         'country_code' => '+1',
         'country' => 'US',
     ]);
+    Organisation::factory()->for($user, 'owner')->create();
 
-    $token = $this->postJson(route('login.store'), [
+    $token = $this->postJson(route('organisation.login'), [
         'email' => $user->email,
         'password' => 'password',
     ])->json('data.access_token');

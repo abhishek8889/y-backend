@@ -6,15 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\OrganiserRegisterRequest;
 use App\Http\Requests\Auth\OrganiserVerifyEmailRequest;
+use App\Http\Resources\AuthenticatedUserResource;
 use App\Http\Resources\LoginResource;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Throwable;
 
 class AuthController extends Controller
 {
     /**
-     * Authenticate the user and return a JWT access token.
+     * Authenticate an organisation owner or staff member and return a JWT.
      */
     public function login(LoginRequest $request, AuthService $auth): JsonResponse
     {
@@ -28,6 +30,25 @@ class AuthController extends Controller
                 LoginResource::make($response),
             );
 
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * Return the authenticated user's profile, scope, roles, and permissions.
+     */
+    public function aboutMe(Request $request, AuthService $auth): JsonResponse
+    {
+        try {
+            $response = $auth->aboutMe($request->user());
+
+            return $this->success(
+                __('auth.about_me'),
+                [
+                    'user' => AuthenticatedUserResource::make($response),
+                ],
+            );
         } catch (Throwable $exception) {
             return $this->failed($exception);
         }

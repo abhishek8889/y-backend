@@ -7,6 +7,7 @@ use App\Models\Permission;
 use App\Models\PlatformRole;
 use App\Models\PlatformStaff;
 use App\Models\User;
+use App\Services\JwtTokenService;
 
 test('platform users with organisations.read can list organisations', function () {
     $user = platformUserWithOrganisationsRead();
@@ -110,8 +111,5 @@ function platformUserWithOrganisationsRead(): User
 
 function platformToken(User $user): string
 {
-    return test()->postJson('/api/login', [
-        'email' => $user->email,
-        'password' => 'password',
-    ])->json('data.access_token');
+    return app(JwtTokenService::class)->issue($user, $user->loginContext());
 }

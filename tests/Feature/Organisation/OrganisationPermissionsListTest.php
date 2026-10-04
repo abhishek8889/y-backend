@@ -19,7 +19,7 @@ test('approved organisations can list organisation-scoped permissions only', fun
     $eventsCreate = Permission::factory()->named(PermissionEnum::EventsCreate)->create();
     Permission::factory()->named(PermissionEnum::OrganisationsRead)->create();
 
-    $token = $this->postJson('/api/login', [
+    $token = $this->postJson('/api/organisation/login', [
         'email' => $user->email,
         'password' => 'password',
     ])->json('data.access_token');
@@ -63,7 +63,7 @@ test('organisation permissions list returns 403 when the organisation is not app
     ]);
     OrganiserStaff::factory()->for($organisation)->for($user)->create();
 
-    $token = $this->postJson('/api/login', [
+    $token = $this->postJson('/api/organisation/login', [
         'email' => $user->email,
         'password' => 'password',
     ])->json('data.access_token');

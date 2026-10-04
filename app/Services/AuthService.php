@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enum\MailSenderEnum;
+use App\Enum\PermissionScopeEnum;
 use App\Enum\PlatformRoleEnum;
 use App\Enum\StatusEnum;
 use App\Models\Organisation;
@@ -34,7 +35,8 @@ class AuthService extends Service
      *     expires_in: int,
      *     scope: string|null,
      *     roles: list<string>,
-     *     organisation_id: int|null
+     *     organisation_id: int|null,
+     *     permissions: array<string, list<string>>
      * }
      */
     public function login(string $email, string $password): array
@@ -51,15 +53,51 @@ class AuthService extends Service
             $this->fail(Response::HTTP_FORBIDDEN, __('auth.inactive'));
         }
 
-        $context = $user->loginContext();
+        $context = $user->organisationLoginContext();
 
-        return [
+        if ($context === null || $context['scope'] !== PermissionScopeEnum::ORGANISATION->value) {
+            $this->fail(
+                Response::HTTP_FORBIDDEN,
+                __('auth.organisation_login_forbidden'),
+            );
+        }
+
+        return $this->authPayload($user, $context);
+    }
+
+    /**
+     * Resolve the authenticated user's current scope, roles, and permissions.
+     *
+     * @return array{
+     *     user: User,
+     *     scope: string|null,
+     *     roles: list<string>,
+     *     organisation_id: int|null,
+     *     permissions: array<string, list<string>>,
+     *     organisation_approve_status?: bool
+     * }
+     */
+    public function aboutMe(User $user): array
+    {
+        $context = $user->organisationLoginContext() ?? $user->loginContext();
+
+        $payload = [
             'user' => $user,
-            'access_token' => $this->jwt->issue($user, $context),
-            'token_type' => 'Bearer',
-            'expires_in' => $this->jwt->expiresIn(),
             ...$context,
+            'permissions' => $user->permissionsGroupedByModule($context),
         ];
+
+        $organisationId = $context['organisation_id'] ?? null;
+
+        if ($organisationId !== null) {
+            $organisation = Organisation::query()->find($organisationId);
+
+            if ($organisation !== null && $user->owns($organisation)) {
+                $payload['organisation_approve_status'] = (bool) $organisation->approve_status;
+            }
+        }
+
+        return $payload;
     }
 
     /**
@@ -141,7 +179,8 @@ class AuthService extends Service
      *     expires_in: int,
      *     scope: string|null,
      *     roles: list<string>,
-     *     organisation_id: int|null
+     *     organisation_id: int|null,
+     *     permissions: array<string, list<string>>
      * }
      */
     public function verifyOrganiserEmail(array $data): array
@@ -182,7 +221,8 @@ class AuthService extends Service
      *     expires_in: int,
      *     scope: string|null,
      *     roles: list<string>,
-     *     organisation_id: int|null
+     *     organisation_id: int|null,
+     *     permissions: array<string, list<string>>
      * }
      */
     public function organiserOnboarding(OrganiserRegistration $registration): array
@@ -261,14 +301,33 @@ class AuthService extends Service
 
         $this->notifySuperAdmins($created['user'], $created['organisation']);
 
-        $context = $created['user']->loginContext();
+        return $this->authPayload($created['user']);
+    }
+
+    /**
+     * @param  array{scope: string|null, roles: list<string>, organisation_id: int|null}|null  $context
+     * @return array{
+     *     user: User,
+     *     access_token: string,
+     *     token_type: string,
+     *     expires_in: int,
+     *     scope: string|null,
+     *     roles: list<string>,
+     *     organisation_id: int|null,
+     *     permissions: array<string, list<string>>
+     * }
+     */
+    private function authPayload(User $user, ?array $context = null): array
+    {
+        $context ??= $user->loginContext();
 
         return [
-            'user' => $created['user'],
-            'access_token' => $this->jwt->issue($created['user'], $context),
+            'user' => $user,
+            'access_token' => $this->jwt->issue($user, $context),
             'token_type' => 'Bearer',
             'expires_in' => $this->jwt->expiresIn(),
             ...$context,
+            'permissions' => $user->permissionsGroupedByModule($context),
         ];
     }
 

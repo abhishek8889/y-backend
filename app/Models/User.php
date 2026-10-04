@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enum\PermissionEnum;
 use App\Enum\PermissionScopeEnum;
+use App\Enum\PlatformRoleEnum;
+use App\Enum\RoleEnum;
 use App\Enum\StatusEnum;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -15,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * @property int $id
@@ -118,7 +121,10 @@ class User extends Authenticatable
         if ($staff !== null) {
             return [
                 'scope' => PermissionScopeEnum::ORGANISATION->value,
-                'roles' => $staff->roles->pluck('name')->values()->all(),
+                'roles' => $staff->roles
+                    ->map(fn (Role $role): string => $role->slug ?: $role->name)
+                    ->values()
+                    ->all(),
                 'organisation_id' => $staff->organisation_id,
             ];
         }
@@ -138,6 +144,128 @@ class User extends Authenticatable
             'roles' => [],
             'organisation_id' => null,
         ];
+    }
+
+    /**
+     * Organisation-only login context (ignores platform staff membership).
+     *
+     * @return array{scope: string, roles: list<string>, organisation_id: int}|null
+     */
+    public function organisationLoginContext(): ?array
+    {
+        $this->loadMissing([
+            'organiserStaff.roles',
+            'ownedOrganisations',
+        ]);
+
+        $staff = $this->organiserStaff
+            ->filter(fn (OrganiserStaff $membership): bool => $membership->status === StatusEnum::ACTIVE)
+            ->sortBy('id')
+            ->first();
+
+        if ($staff !== null) {
+            return [
+                'scope' => PermissionScopeEnum::ORGANISATION->value,
+                'roles' => $staff->roles
+                    ->map(fn (Role $role): string => $role->slug ?: $role->name)
+                    ->values()
+                    ->all(),
+                'organisation_id' => $staff->organisation_id,
+            ];
+        }
+
+        $organisation = $this->ownedOrganisations->sortBy('id')->first();
+
+        if ($organisation !== null) {
+            return [
+                'scope' => PermissionScopeEnum::ORGANISATION->value,
+                'roles' => [],
+                'organisation_id' => $organisation->id,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Permission names for the current login scope, grouped by module.
+     *
+     * @param  array{scope: string|null, roles: list<string>, organisation_id: int|null}  $context
+     * @return array<string, list<string>>
+     */
+    public function permissionsGroupedByModule(array $context): array
+    {
+        $names = match ($context['scope'] ?? null) {
+            PermissionScopeEnum::PLATFORM->value => $this->resolvePlatformPermissionNames($context['roles'] ?? []),
+            PermissionScopeEnum::ORGANISATION->value => $this->resolveOrganisationPermissionNames(
+                $context['roles'] ?? [],
+                $context['organisation_id'] ?? null,
+            ),
+            default => collect(),
+        };
+
+        return $names
+            ->unique()
+            ->sort()
+            ->groupBy(fn (string $name): string => explode('.', $name, 2)[0])
+            ->map(fn (Collection $group): array => $group->values()->all())
+            ->all();
+    }
+
+    /**
+     * @param  list<string>  $roles
+     * @return Collection<int, string>
+     */
+    private function resolvePlatformPermissionNames(array $roles): Collection
+    {
+        if (in_array(PlatformRoleEnum::SUPER_ADMIN->value, $roles, true)) {
+            return Permission::query()
+                ->platform()
+                ->orderBy('name')
+                ->pluck('name');
+        }
+
+        $this->loadMissing('platformStaff.roles.permissions');
+
+        return $this->platformStaff
+            ?->roles
+            ->flatMap(fn (PlatformRole $role): Collection => $role->permissions->pluck('name'))
+            ->values() ?? collect();
+    }
+
+    /**
+     * @param  list<string>  $roles
+     * @return Collection<int, string>
+     */
+    private function resolveOrganisationPermissionNames(array $roles, ?int $organisationId): Collection
+    {
+        $isOwner = in_array(RoleEnum::OWNER->value, $roles, true)
+            || (
+                $organisationId !== null
+                && $this->ownedOrganisations->contains(
+                    fn (Organisation $organisation): bool => $organisation->id === $organisationId,
+                )
+            );
+
+        if ($isOwner) {
+            return Permission::query()
+                ->organisation()
+                ->orderBy('name')
+                ->pluck('name');
+        }
+
+        $this->loadMissing('organiserStaff.roles.permissions');
+
+        return $this->organiserStaff
+            ->filter(
+                fn (OrganiserStaff $membership): bool => $membership->status === StatusEnum::ACTIVE
+                    && ($organisationId === null || $membership->organisation_id === $organisationId),
+            )
+            ->flatMap(
+                fn (OrganiserStaff $membership): Collection => $membership->roles
+                    ->flatMap(fn (Role $role): Collection => $role->permissions->pluck('name')),
+            )
+            ->values();
     }
 
     public function owns(Organisation $organisation): bool

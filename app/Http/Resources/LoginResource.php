@@ -14,7 +14,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *     expires_in: int,
  *     scope: string|null,
  *     roles: list<string>,
- *     organisation_id: int|null
+ *     organisation_id: int|null,
+ *     permissions: array<string, list<string>>
  * } $resource
  */
 class LoginResource extends JsonResource
@@ -28,12 +29,13 @@ class LoginResource extends JsonResource
             'access_token' => $this->resource['access_token'],
             'token_type' => $this->resource['token_type'],
             'expires_in' => $this->resource['expires_in'],
-            'user' => [
-                ...UserResource::make($this->resource['user'])->resolve(),
+            'user' => AuthenticatedUserResource::make([
+                'user' => $this->resource['user'],
                 'scope' => $this->resource['scope'],
                 'roles' => $this->resource['roles'],
                 'organisation_id' => $this->resource['organisation_id'],
-            ],
+                'permissions' => $this->resource['permissions'] ?? [],
+            ])->resolve(),
         ];
     }
 }

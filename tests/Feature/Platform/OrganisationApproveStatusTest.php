@@ -9,6 +9,7 @@ use App\Models\Permission;
 use App\Models\PlatformRole;
 use App\Models\PlatformStaff;
 use App\Models\User;
+use App\Services\JwtTokenService;
 use Illuminate\Support\Facades\Mail;
 
 test('platform users with organisations.manage_approve_status can approve an organisation', function () {
@@ -157,8 +158,5 @@ function platformUserWithManageApproveStatus(): User
 
 function platformApproveStatusToken(User $user): string
 {
-    return test()->postJson('/api/login', [
-        'email' => $user->email,
-        'password' => 'password',
-    ])->json('data.access_token');
+    return app(JwtTokenService::class)->issue($user, $user->loginContext());
 }

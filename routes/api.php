@@ -17,9 +17,9 @@ use App\Http\Responses\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/login', [AuthController::class, 'login'])
+Route::post('/organisation/login', [AuthController::class, 'login'])
     ->middleware('throttle:login')
-    ->name('login.store');
+    ->name('organisation.login');
 
 Route::post('/organiser/register', [AuthController::class, 'registerOrganiser'])
     ->name('organiser.register');
@@ -54,6 +54,9 @@ Route::middleware('jwt')->group(function () {
     Route::get('/user', function (Request $request) {
         return ApiResponse::success(data: UserResource::make($request->user()));
     })->name('api.user');
+
+    Route::get('/about-me', [AuthController::class, 'aboutMe'])
+        ->name('auth.about-me');
 
     Route::get('/profile/details', [ProfileController::class, 'details'])
         ->name('profile.details');

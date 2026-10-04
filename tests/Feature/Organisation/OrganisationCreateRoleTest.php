@@ -19,7 +19,7 @@ test('approved organisations can create a role with selected permissions', funct
     $createEvents = Permission::factory()->named(PermissionEnum::EventsCreate)->create();
     $platformPermission = Permission::factory()->named(PermissionEnum::OrganisationsRead)->create();
 
-    $token = $this->postJson('/api/login', [
+    $token = $this->postJson('/api/organisation/login', [
         'email' => $user->email,
         'password' => 'password',
     ])->json('data.access_token');
@@ -74,7 +74,7 @@ test('create role rejects reserved owner name', function () {
     ]);
     OrganiserStaff::factory()->for($organisation)->for($user)->create();
 
-    $token = $this->postJson('/api/login', [
+    $token = $this->postJson('/api/organisation/login', [
         'email' => $user->email,
         'password' => 'password',
     ])->json('data.access_token');
@@ -98,7 +98,7 @@ test('create role rejects platform permission ids', function () {
 
     $platformPermission = Permission::factory()->named(PermissionEnum::OrganisationsRead)->create();
 
-    $token = $this->postJson('/api/login', [
+    $token = $this->postJson('/api/organisation/login', [
         'email' => $user->email,
         'password' => 'password',
     ])->json('data.access_token');

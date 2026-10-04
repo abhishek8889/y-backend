@@ -18,6 +18,8 @@ return [
     'throttle' => 'Too many login attempts. Please try again in :seconds seconds.',
     'inactive' => 'Your account is inactive.',
     'authenticated' => 'Authenticated.',
+    'about_me' => 'Authenticated user details.',
+    'organisation_login_forbidden' => 'Invalid credentials.',
     'registered' => 'Registered successfully. Please verify your email.',
     'email_already_registered' => 'This email is already registered.',
     'email_verified' => 'Email verified successfully.',

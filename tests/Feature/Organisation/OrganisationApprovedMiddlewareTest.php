@@ -68,7 +68,7 @@ function organisationOwnerWithToken(
 
 function organisationApprovedToken(User $user): string
 {
-    return test()->postJson('/api/login', [
+    return test()->postJson('/api/organisation/login', [
         'email' => $user->email,
         'password' => 'password',
     ])->json('data.access_token');

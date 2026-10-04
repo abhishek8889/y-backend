@@ -5,6 +5,7 @@ use App\Models\Organisation;
 use App\Models\OrganisationStripeAccount;
 use App\Models\OrganiserStaff;
 use App\Models\User;
+use App\Services\JwtTokenService;
 
 test('authenticated organisation owner can fetch their organisation details', function () {
     $user = User::factory()->create();
@@ -16,7 +17,7 @@ test('authenticated organisation owner can fetch their organisation details', fu
     ]);
     OrganiserStaff::factory()->for($organisation)->for($user)->create();
 
-    $token = $this->postJson('/api/login', [
+    $token = $this->postJson('/api/organisation/login', [
         'email' => $user->email,
         'password' => 'password',
     ])->json('data.access_token');
@@ -49,7 +50,7 @@ test('my-org details reports stripe connect account created when a stripe accoun
         'onboarding_status' => StripeOnboardingStatusEnum::PENDING,
     ]);
 
-    $token = $this->postJson('/api/login', [
+    $token = $this->postJson('/api/organisation/login', [
         'email' => $user->email,
         'password' => 'password',
     ])->json('data.access_token');
@@ -63,10 +64,7 @@ test('my-org details reports stripe connect account created when a stripe accoun
 test('my-org details returns 404 when the user has no organisation', function () {
     $user = User::factory()->create();
 
-    $token = $this->postJson('/api/login', [
-        'email' => $user->email,
-        'password' => 'password',
-    ])->json('data.access_token');
+    $token = app(JwtTokenService::class)->issue($user, $user->loginContext());
 
     $this->withToken($token)
         ->getJson('/api/my-org/details')
