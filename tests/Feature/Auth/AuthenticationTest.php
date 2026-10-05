@@ -84,6 +84,83 @@ test('platform staff cannot authenticate through organisation login', function (
         ->assertJsonPath('message', __('auth.organisation_login_forbidden'));
 });
 
+test('platform staff can authenticate through platform login and receive a jwt', function () {
+    $user = User::factory()->create();
+    $staff = PlatformStaff::factory()->for($user)->create();
+    $role = PlatformRole::factory()->create(['name' => PlatformRoleEnum::SUPER_ADMIN->value]);
+    $staff->assignRole($role);
+
+    $this->postJson(route('platform.login'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('message', __('auth.authenticated'))
+        ->assertJsonPath('data.token_type', 'Bearer')
+        ->assertJsonPath('data.user.id', $user->id)
+        ->assertJsonPath('data.user.email', $user->email)
+        ->assertJsonPath('data.user.scope', PermissionScopeEnum::PLATFORM->value)
+        ->assertJsonPath('data.user.roles', [PlatformRoleEnum::SUPER_ADMIN->value])
+        ->assertJsonPath('data.user.organisation_id', null);
+
+    $this->assertGuest();
+});
+
+test('organisation owners cannot authenticate through platform login', function () {
+    $organisation = Organisation::factory()->create();
+    $owner = $organisation->owner;
+
+    $this->postJson(route('platform.login'), [
+        'email' => $owner->email,
+        'password' => 'password',
+    ])->assertForbidden()
+        ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('auth.platform_login_forbidden'));
+
+    $this->assertGuest();
+});
+
+test('users without platform membership cannot authenticate through platform login', function () {
+    $user = User::factory()->create();
+
+    $this->postJson(route('platform.login'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->assertForbidden()
+        ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('auth.platform_login_forbidden'));
+
+    $this->assertGuest();
+});
+
+test('inactive platform staff cannot authenticate through platform login', function () {
+    $user = User::factory()->create();
+    $staff = PlatformStaff::factory()->inactive()->for($user)->create();
+    $role = PlatformRole::factory()->create(['name' => PlatformRoleEnum::SUPER_ADMIN->value]);
+    $staff->assignRole($role);
+
+    $this->postJson(route('platform.login'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->assertForbidden()
+        ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('auth.platform_login_forbidden'));
+});
+
+test('platform login rejects invalid password with failed credentials', function () {
+    $user = User::factory()->create();
+    $staff = PlatformStaff::factory()->for($user)->create();
+    $role = PlatformRole::factory()->create(['name' => PlatformRoleEnum::SUPER_ADMIN->value]);
+    $staff->assignRole($role);
+
+    $this->postJson(route('platform.login'), [
+        'email' => $user->email,
+        'password' => 'wrong-password',
+    ])->assertUnprocessable()
+        ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('auth.failed'));
+});
+
 test('organisation staff receive their role, organisation scope, and organisation id', function () {
     $user = User::factory()->create();
     $organisation = Organisation::factory()->create();

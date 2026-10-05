@@ -48,7 +48,7 @@ return [
 
     'max_video_kilobytes' => (int) env('MEDIA_MAX_VIDEO_KB', 102400),
 
-    'image_mimes' => ['jpeg', 'jpg', 'png', 'webp', 'gif'],
+    'image_mimes' => ['jpeg', 'jpg', 'png', 'webp', 'gif', 'jfif'],
 
     'video_mimes' => ['mp4', 'webm', 'mov'],
 

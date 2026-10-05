@@ -21,6 +21,10 @@ Route::post('/organisation/login', [AuthController::class, 'login'])
     ->middleware('throttle:login')
     ->name('organisation.login');
 
+Route::post('/platform/login', [AuthController::class, 'platformLogin'])
+    ->middleware('throttle:login')
+    ->name('platform.login');
+
 Route::post('/organiser/register', [AuthController::class, 'registerOrganiser'])
     ->name('organiser.register');
 
@@ -72,6 +76,7 @@ Route::middleware('jwt')->group(function () {
     Route::prefix('organisation')->middleware('organisation.approved')->group(function () {
         // ###### Venue Routes ######
         Route::get('/venue/list', [VenueController::class, 'list'])->middleware('organisation.permission:venues.read');
+        Route::get('/venue/details/{venue_id}', [VenueController::class, 'details'])->middleware('organisation.permission:venues.read');
         Route::post('/venue/create', [VenueController::class, 'create'])->middleware('organisation.permission:venues.create');
         Route::post('/venue/update/{venue_id}', [VenueController::class, 'update'])->middleware('organisation.permission:venues.update');
         Route::delete('/venue/delete/{venue_id}', [VenueController::class, 'delete'])->middleware('organisation.permission:venues.delete');

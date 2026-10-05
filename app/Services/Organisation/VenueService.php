@@ -165,6 +165,32 @@ class VenueService extends Service
     }
 
     /**
+     * Get venue details for the authenticated organiser's organisation.
+     *
+     * @return array{venue: Venue}
+     */
+    public function details(User $user, int $venueId): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+        $venue = $this->resolveOrganisationVenue($organisation->id, $venueId);
+
+        $venue->load([
+            'venueType',
+            'address',
+            'contacts',
+            'accessibility',
+            'logistics',
+            'facilities',
+            'suitableForOptions',
+            'images',
+        ]);
+
+        return [
+            'venue' => $venue,
+        ];
+    }
+
+    /**
      * Update a venue belonging to the authenticated organiser's organisation.
      *
      * @param  array<string, mixed>  $data

@@ -188,6 +188,30 @@ class User extends Authenticatable
     }
 
     /**
+     * Platform-only login context (ignores organisation membership).
+     *
+     * @return array{scope: string, roles: list<string>, organisation_id: null}|null
+     */
+    public function platformLoginContext(): ?array
+    {
+        $this->loadMissing([
+            'platformStaff.roles',
+        ]);
+
+        $platformStaff = $this->platformStaff;
+
+        if ($platformStaff === null || $platformStaff->status !== StatusEnum::ACTIVE) {
+            return null;
+        }
+
+        return [
+            'scope' => PermissionScopeEnum::PLATFORM->value,
+            'roles' => $platformStaff->roles->pluck('name')->values()->all(),
+            'organisation_id' => null,
+        ];
+    }
+
+    /**
      * Permission names for the current login scope, grouped by module.
      *
      * @param  array{scope: string|null, roles: list<string>, organisation_id: int|null}  $context

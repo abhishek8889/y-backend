@@ -2,10 +2,12 @@
 
 namespace App\Http\Requests\Media;
 
+use App\Exceptions\ServiceException;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Validation\Validator;
+use Symfony\Component\HttpFoundation\Response;
 
 class UploadMediaRequest extends FormRequest
 {
@@ -86,5 +88,43 @@ class UploadMediaRequest extends FormRequest
             'file' => 'media file',
             'context' => 'media context',
         ];
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        /** @var UploadedFile|null $file */
+        $file = $this->file('file');
+
+        $message = $validator->errors()->first()
+            ?: __('validation.uploaded', ['attribute' => 'media file']);
+
+        $error = $message;
+
+        if ($file instanceof UploadedFile && ! $file->isValid()) {
+            $error = $this->phpUploadErrorDetails($file);
+        }
+
+        throw new ServiceException(
+            Response::HTTP_UNPROCESSABLE_ENTITY,
+            $message,
+            $error,
+        );
+    }
+
+    private function phpUploadErrorDetails(UploadedFile $file): string
+    {
+        $uploadMaxFilesize = (string) ini_get('upload_max_filesize');
+        $postMaxSize = (string) ini_get('post_max_size');
+
+        return match ($file->getError()) {
+            UPLOAD_ERR_INI_SIZE => "PHP UPLOAD_ERR_INI_SIZE: file exceeds upload_max_filesize ({$uploadMaxFilesize}). post_max_size={$postMaxSize}.",
+            UPLOAD_ERR_FORM_SIZE => 'PHP UPLOAD_ERR_FORM_SIZE: file exceeds the form MAX_FILE_SIZE limit.',
+            UPLOAD_ERR_PARTIAL => 'PHP UPLOAD_ERR_PARTIAL: file was only partially uploaded.',
+            UPLOAD_ERR_NO_FILE => 'PHP UPLOAD_ERR_NO_FILE: no file was uploaded.',
+            UPLOAD_ERR_NO_TMP_DIR => 'PHP UPLOAD_ERR_NO_TMP_DIR: missing a temporary folder.',
+            UPLOAD_ERR_CANT_WRITE => 'PHP UPLOAD_ERR_CANT_WRITE: failed to write file to disk.',
+            UPLOAD_ERR_EXTENSION => 'PHP UPLOAD_ERR_EXTENSION: a PHP extension stopped the file upload.',
+            default => "PHP upload error code {$file->getError()}. upload_max_filesize={$uploadMaxFilesize}, post_max_size={$postMaxSize}.",
+        };
     }
 }

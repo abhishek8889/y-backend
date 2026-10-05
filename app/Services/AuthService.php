@@ -66,6 +66,46 @@ class AuthService extends Service
     }
 
     /**
+     * Authenticate a platform (super admin dashboard) user and return a JWT.
+     *
+     * @return array{
+     *     user: User,
+     *     access_token: string,
+     *     token_type: string,
+     *     expires_in: int,
+     *     scope: string|null,
+     *     roles: list<string>,
+     *     organisation_id: int|null,
+     *     permissions: array<string, list<string>>
+     * }
+     */
+    public function platformLogin(string $email, string $password): array
+    {
+        $email = Str::lower($email);
+
+        $user = User::query()->where('email', $email)->first();
+
+        if ($user === null || ! Hash::check($password, $user->getAuthPassword())) {
+            $this->fail(Response::HTTP_UNPROCESSABLE_ENTITY, __('auth.failed'));
+        }
+
+        if ($user->status !== StatusEnum::ACTIVE) {
+            $this->fail(Response::HTTP_FORBIDDEN, __('auth.inactive'));
+        }
+
+        $context = $user->platformLoginContext();
+
+        if ($context === null || $context['scope'] !== PermissionScopeEnum::PLATFORM->value) {
+            $this->fail(
+                Response::HTTP_FORBIDDEN,
+                __('auth.platform_login_forbidden'),
+            );
+        }
+
+        return $this->authPayload($user, $context);
+    }
+
+    /**
      * Resolve the authenticated user's current scope, roles, and permissions.
      *
      * @return array{

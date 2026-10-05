@@ -105,6 +105,23 @@ class VenueController extends Controller
     }
 
     /**
+     * Get venue details for the authenticated organiser's organisation.
+     */
+    public function details(Request $request, VenueService $venue, int $venue_id): JsonResponse
+    {
+        try {
+            $response = $venue->details($request->user(), $venue_id);
+
+            return $this->success(
+                __('messages.venue_details'),
+                VenueResource::make($response['venue']),
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
      * List system facilities and optional organisation-specific facilities.
      */
     public function getFacilitiesListForVenue(Request $request, VenueService $venue): JsonResponse

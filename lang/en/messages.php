@@ -73,6 +73,7 @@ return [
     'venue_updated' => 'Venue updated successfully.',
     'venue_deleted' => 'Venue deleted successfully.',
     'venue_list' => 'Venue list.',
+    'venue_details' => 'Venue details.',
     'venue_not_found' => 'Venue not found.',
     'venue_invalid_status' => 'Venue status is invalid.',
     'venue_invalid_venue_type' => 'Venue type is invalid.',

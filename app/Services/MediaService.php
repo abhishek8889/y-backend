@@ -361,6 +361,7 @@ class MediaService extends Service
         $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin');
         $filename = Str::lower((string) Str::ulid()).'.'.$extension;
         $path = $directory.'/'.$filename;
+
         $resourceType = $this->cloudinaryResourceType($extension, $file->getClientMimeType());
 
         try {
