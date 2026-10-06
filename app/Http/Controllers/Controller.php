@@ -39,7 +39,7 @@ abstract class Controller
 
         return ApiResponse::error(
             __('exceptions.server_error'),
-            __('exceptions.server_error'),
+            $exception->getMessage() ?? __('exceptions.server_error'),
             Response::HTTP_INTERNAL_SERVER_ERROR,
         );
     }

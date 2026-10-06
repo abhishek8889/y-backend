@@ -493,6 +493,7 @@ class EventService extends Service
             $ticket,
             (int) $data['quantity_cap'],
         );
+        // dd($event , $data['sale_ends_at']);
         $this->assertOfferSaleEndsBeforeEventStarts(
             $event,
             $data['sale_ends_at'] ?? null,
@@ -511,7 +512,7 @@ class EventService extends Service
                     'sale_ends_at' => $data['sale_ends_at'] ?? null,
                     'max_per_order' => $data['max_per_order'] ?? null,
                     'access' => $data['access'] ?? 'public',
-                    'status' => EventTicketOfferStatusEnum::DRAFT,
+                    'status' => $data['status'] ?? EventTicketOfferStatusEnum::DRAFT,
                     'sort_order' => $data['sort_order'] ?? 0,
                     'created_by' => $user->id,
                     'updated_by' => $user->id,
@@ -892,7 +893,7 @@ class EventService extends Service
             return;
         }
 
-        if (Carbon::parse($saleEndsAt)->gte($event->starts_at)) {
+        if (Carbon::parse($saleEndsAt)->gt($event->starts_at)) {
             $this->fail(
                 Response::HTTP_UNPROCESSABLE_ENTITY,
                 __('messages.event_ticket_offer_sale_ends_before_event_start'),

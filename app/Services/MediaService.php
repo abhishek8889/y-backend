@@ -363,13 +363,21 @@ class MediaService extends Service
         $path = $directory.'/'.$filename;
 
         $resourceType = $this->cloudinaryResourceType($extension, $file->getClientMimeType());
+        $projectFolder = $this->cloudinaryFolder();
+
+        // Dynamic folder mode (Cloudinary default): slashes in public_id do NOT place the
+        // asset in Media Library folders. asset_folder is what shows under CLOUDINARY_FOLDER.
+        $uploadOptions = [
+            'public_id' => $this->cloudinaryPublicId($path),
+            'resource_type' => $resourceType,
+        ];
+
+        if ($projectFolder !== '') {
+            $uploadOptions['asset_folder'] = $projectFolder;
+        }
 
         try {
-            $result = CloudinaryUploader::upload($file->getRealPath(), [
-                'public_id' => $this->cloudinaryPublicId($path),
-                'resource_type' => $resourceType,
-                'overwrite' => false,
-            ]);
+            $result = $this->cloudinaryUpload($file->getRealPath(), $uploadOptions);
         } catch (Throwable) {
             $this->fail(
                 Response::HTTP_INTERNAL_SERVER_ERROR,
@@ -500,7 +508,7 @@ class MediaService extends Service
     }
 
     /**
-     * Cloudinary public_id for a stored relative path (no file extension).
+     * Full Cloudinary public_id including CLOUDINARY_FOLDER prefix (no file extension).
      */
     private function cloudinaryPublicId(string $path): string
     {
@@ -511,6 +519,27 @@ class MediaService extends Service
         $folder = $this->cloudinaryFolder();
 
         return $folder !== '' ? $folder.'/'.$relative : $relative;
+    }
+
+    /**
+     * Upload via the legacy SDK, signing asset_folder for dynamic folder mode.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    private function cloudinaryUpload(string $filePath, array $options): array
+    {
+        $params = CloudinaryUploader::build_upload_params($options);
+
+        // cloudinary_php 1.20 does not include asset_folder in build_upload_params.
+        if (isset($options['asset_folder']) && filled($options['asset_folder'])) {
+            $params['asset_folder'] = (string) $options['asset_folder'];
+        }
+
+        /** @var array<string, mixed> $result */
+        $result = CloudinaryUploader::call_cacheable_api('upload', $params, $options, $filePath);
+
+        return $result;
     }
 
     private function cloudinaryUrl(string $path, ?string $resourceType = null): string

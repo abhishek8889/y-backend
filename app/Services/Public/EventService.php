@@ -3,11 +3,15 @@
 namespace App\Services\Public;
 
 use App\Enum\EventStatusEnum;
+use App\Enum\EventTicketOfferStatusEnum;
+use App\Enum\EventTicketStatusEnum;
 use App\Http\Responses\CursorPaginatedResponse;
 use App\Models\Event;
+use App\Models\EventTicket;
 use App\Models\Organisation;
 use App\Services\Service;
 use Illuminate\Contracts\Pagination\CursorPaginator;
+use Illuminate\Database\Eloquent\Collection;
 use Symfony\Component\HttpFoundation\Response;
 
 class EventService extends Service
@@ -105,6 +109,67 @@ class EventService extends Service
 
         return [
             'event' => $event,
+        ];
+    }
+
+    /**
+     * Tickets and nested offers for a published public event.
+     *
+     * @return array{tickets: Collection<int, EventTicket>}
+     */
+    public function tickets(string $uniqueId, ?int $organisationId = null): array
+    {
+        $event = Event::query()
+            ->where('unique_id', $uniqueId)
+            ->where('status', EventStatusEnum::PUBLISHED)
+            ->whereHas('organisation', function ($query): void {
+                $query->where('approve_status', true);
+            })
+            ->when(
+                $organisationId !== null,
+                fn ($query) => $query->where('organisation_id', $organisationId),
+            )
+            ->first();
+
+        if ($event === null) {
+            $this->fail(
+                Response::HTTP_NOT_FOUND,
+                __('messages.event_not_found'),
+            );
+        }
+
+        $tickets = $event->tickets()
+            ->whereIn('status', [
+                EventTicketStatusEnum::ACTIVE,
+                EventTicketStatusEnum::SOLD_OUT,
+            ])
+            ->with([
+                'offers' => function ($query): void {
+                    $now = now();
+
+                    $query
+                        ->whereIn('status', [
+                            EventTicketOfferStatusEnum::ACTIVE,
+                            EventTicketOfferStatusEnum::SOLD_OUT,
+                        ])
+                        ->where(function ($inner) use ($now): void {
+                            $inner->whereNull('sale_starts_at')
+                                ->orWhere('sale_starts_at', '<=', $now);
+                        })
+                        ->where(function ($inner) use ($now): void {
+                            $inner->whereNull('sale_ends_at')
+                                ->orWhere('sale_ends_at', '>=', $now);
+                        })
+                        ->orderBy('sort_order')
+                        ->orderBy('id');
+                },
+            ])
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        return [
+            'tickets' => $tickets,
         ];
     }
 

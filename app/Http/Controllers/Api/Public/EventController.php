@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Public;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EventListResource;
 use App\Http\Resources\EventResource;
+use App\Http\Resources\EventTicketResource;
 use App\Services\Public\EventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -70,6 +71,30 @@ class EventController extends Controller
             return $this->success(
                 __('messages.public_event_details'),
                 EventResource::make($response['event']),
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * Tickets and offers for a published public event.
+     */
+    public function tickets(
+        Request $request,
+        EventService $event,
+        string $unique_id,
+    ): JsonResponse {
+        try {
+            $organisationId = $request->filled('organisation_id')
+                ? $request->integer('organisation_id')
+                : null;
+
+            $response = $event->tickets($unique_id, $organisationId);
+
+            return $this->success(
+                __('messages.public_event_tickets'),
+                EventTicketResource::collection($response['tickets']),
             );
         } catch (Throwable $exception) {
             return $this->failed($exception);

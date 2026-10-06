@@ -37,8 +37,6 @@ Route::post('/account-webhooks', StripeAccountWebhook::class)
 // ################## Public Venue Option Lists ##################
 Route::prefix('venue')->group(function () {
     Route::get('/types', [VenueController::class, 'getVenueTypeList']);
-    Route::get('/facilities', [VenueController::class, 'getFacilitiesListForVenue']);
-    Route::get('/suitable-for-options', [VenueController::class, 'getVenueSuitableForOptions']);
 });
 
 // ################## Public Event Option Lists ##################
@@ -51,6 +49,7 @@ Route::prefix('public')->group(function () {
     Route::prefix('events')->group(function () {
         Route::get('/list', [PublicEventController::class, 'list']);
         Route::get('/details/{unique_id}', [PublicEventController::class, 'details']);
+        Route::get('/tickets/{unique_id}', [PublicEventController::class, 'tickets']);
     });
 });
 
@@ -77,7 +76,13 @@ Route::middleware('jwt')->group(function () {
         // ###### Venue Routes ######
         Route::get('/venue/list', [VenueController::class, 'list'])->middleware('organisation.permission:venues.read');
         Route::get('/venue/details/{venue_id}', [VenueController::class, 'details'])->middleware('organisation.permission:venues.read');
+        Route::get('/venue/facilities', [VenueController::class, 'getFacilitiesListForVenue'])->middleware('organisation.permission:venues.read');
+        Route::get('/venue/suitable-for-options', [VenueController::class, 'getVenueSuitableForOptions'])->middleware('organisation.permission:venues.read');
         Route::post('/venue/create', [VenueController::class, 'create'])->middleware('organisation.permission:venues.create');
+        Route::post('/venue/create-custom-facilities', [VenueController::class, 'createCustomFacilities'])->middleware('organisation.permission:venues.create');
+        Route::delete('/venue/delete-facility/{facility_id}', [VenueController::class, 'deleteCustomFacility'])->middleware('organisation.permission:venues.update');
+        Route::post('/venue/create-custom-suitable-for-option', [VenueController::class, 'createCustomSuitableForOption'])->middleware('organisation.permission:venues.create');
+        Route::delete('/venue/delete-suitable-for-option/{option_id}', [VenueController::class, 'deleteCustomSuitableForOption'])->middleware('organisation.permission:venues.update');
         Route::post('/venue/update/{venue_id}', [VenueController::class, 'update'])->middleware('organisation.permission:venues.update');
         Route::delete('/venue/delete/{venue_id}', [VenueController::class, 'delete'])->middleware('organisation.permission:venues.delete');
 

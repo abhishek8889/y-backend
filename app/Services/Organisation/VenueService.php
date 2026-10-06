@@ -16,6 +16,7 @@ use App\Support\UniqueIdGenerator;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -344,20 +345,19 @@ class VenueService extends Service
     }
 
     /**
-     * System facilities plus optional organisation-specific facilities.
+     * System facilities plus the authenticated organisation's facilities.
      *
      * @return array{facilities: Collection<int, Facility>}
      */
-    public function getFacilitiesListForVenue(?int $organisationId = null): array
+    public function getFacilitiesListForVenue(User $user): array
     {
+        $organisation = $this->resolveOrganisation($user);
+
         $facilities = Facility::query()
             ->where('is_active', true)
-            ->where(function ($query) use ($organisationId): void {
-                $query->whereNull('organisation_id');
-
-                if ($organisationId !== null) {
-                    $query->orWhere('organisation_id', $organisationId);
-                }
+            ->where(function ($query) use ($organisation): void {
+                $query->whereNull('organisation_id')
+                    ->orWhere('organisation_id', $organisation->id);
             })
             ->orderBy('sort_order')
             ->orderBy('name')
@@ -369,20 +369,187 @@ class VenueService extends Service
     }
 
     /**
-     * System suitable-for options plus optional organisation-specific options.
+     * Create an organisation-specific facility (visible only with system facilities for that org).
+     *
+     * @param  array{name: string}  $data
+     * @return array{facility: Facility}
+     */
+    public function createCustomFacilities(User $user, array $data): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+        $name = trim((string) $data['name']);
+        $slug = Str::slug($name);
+
+        if ($slug === '') {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.venue_facility_invalid_name'),
+            );
+        }
+
+        $alreadyExists = Facility::query()
+            ->where('slug', $slug)
+            ->where(function ($query) use ($organisation): void {
+                $query->whereNull('organisation_id')
+                    ->orWhere('organisation_id', $organisation->id);
+            })
+            ->exists();
+
+        if ($alreadyExists) {
+            $this->fail(
+                Response::HTTP_BAD_REQUEST,
+                __('messages.venue_facility_already_exists'),
+            );
+        }
+
+        $sortOrder = (int) Facility::query()
+            ->where(function ($query) use ($organisation): void {
+                $query->whereNull('organisation_id')
+                    ->orWhere('organisation_id', $organisation->id);
+            })
+            ->max('sort_order');
+
+        $facility = Facility::query()->create([
+            'organisation_id' => $organisation->id,
+            'name' => $name,
+            'slug' => $slug,
+            'is_active' => true,
+            'sort_order' => $sortOrder + 1,
+        ]);
+
+        return [
+            'facility' => $facility,
+        ];
+    }
+
+    /**
+     * Delete an organisation-owned custom facility.
+     *
+     * Related venue_facilities rows are removed by the facility foreign key cascade.
+     *
+     * @return array{facility_id: int}
+     */
+    public function deleteCustomFacility(User $user, int $facilityId): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+
+        $facility = Facility::query()
+            ->whereKey($facilityId)
+            ->where('organisation_id', $organisation->id)
+            ->first();
+
+        if ($facility === null) {
+            $this->fail(
+                Response::HTTP_NOT_FOUND,
+                __('messages.venue_facility_not_found'),
+            );
+        }
+
+        $facility->delete();
+
+        return [
+            'facility_id' => $facilityId,
+        ];
+    }
+
+    /**
+     * Create an organisation-specific suitable-for option.
+     *
+     * @param  array{name: string}  $data
+     * @return array{option: VenueSuitableForOption}
+     */
+    public function createCustomSuitableForOption(User $user, array $data): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+        $name = trim((string) $data['name']);
+        $slug = Str::slug($name);
+
+        if ($slug === '') {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.venue_suitable_for_option_invalid_name'),
+            );
+        }
+
+        $alreadyExists = VenueSuitableForOption::query()
+            ->where('slug', $slug)
+            ->where(function ($query) use ($organisation): void {
+                $query->whereNull('organisation_id')
+                    ->orWhere('organisation_id', $organisation->id);
+            })
+            ->exists();
+
+        if ($alreadyExists) {
+            $this->fail(
+                Response::HTTP_BAD_REQUEST,
+                __('messages.venue_suitable_for_option_already_exists'),
+            );
+        }
+
+        $sortOrder = (int) VenueSuitableForOption::query()
+            ->where(function ($query) use ($organisation): void {
+                $query->whereNull('organisation_id')
+                    ->orWhere('organisation_id', $organisation->id);
+            })
+            ->max('sort_order');
+
+        $option = VenueSuitableForOption::query()->create([
+            'organisation_id' => $organisation->id,
+            'name' => $name,
+            'slug' => $slug,
+            'is_active' => true,
+            'sort_order' => $sortOrder + 1,
+        ]);
+
+        return [
+            'option' => $option,
+        ];
+    }
+
+    /**
+     * Delete an organisation-owned custom suitable-for option.
+     *
+     * Related venue_suitable_for rows are removed by the option foreign key cascade.
+     *
+     * @return array{option_id: int}
+     */
+    public function deleteCustomSuitableForOption(User $user, int $optionId): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+
+        $option = VenueSuitableForOption::query()
+            ->whereKey($optionId)
+            ->where('organisation_id', $organisation->id)
+            ->first();
+
+        if ($option === null) {
+            $this->fail(
+                Response::HTTP_NOT_FOUND,
+                __('messages.venue_suitable_for_option_not_found'),
+            );
+        }
+
+        $option->delete();
+
+        return [
+            'option_id' => $optionId,
+        ];
+    }
+
+    /**
+     * System suitable-for options plus the authenticated organisation's options.
      *
      * @return array{options: Collection<int, VenueSuitableForOption>}
      */
-    public function getVenueSuitableForOptions(?int $organisationId = null): array
+    public function getVenueSuitableForOptions(User $user): array
     {
+        $organisation = $this->resolveOrganisation($user);
+
         $options = VenueSuitableForOption::query()
             ->where('is_active', true)
-            ->where(function ($query) use ($organisationId): void {
-                $query->whereNull('organisation_id');
-
-                if ($organisationId !== null) {
-                    $query->orWhere('organisation_id', $organisationId);
-                }
+            ->where(function ($query) use ($organisation): void {
+                $query->whereNull('organisation_id')
+                    ->orWhere('organisation_id', $organisation->id);
             })
             ->orderBy('sort_order')
             ->orderBy('name')
