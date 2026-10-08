@@ -97,6 +97,7 @@ return [
     'public_event_list' => 'Public event list.',
     'public_event_details' => 'Public event details.',
     'public_event_tickets' => 'Public event tickets.',
+    'public_booking_started' => 'Booking started.',
     'event_deleted' => 'Event deleted successfully.',
     'event_cannot_delete_non_draft' => 'Only draft events can be deleted.',
     'event_cannot_update_final_status' => 'Cancelled or completed events cannot be updated.',

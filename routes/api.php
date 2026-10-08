@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Organisation\StaffMemberController;
 use App\Http\Controllers\Api\Organisation\VenueController;
 use App\Http\Controllers\Api\Platform\OrganisationController as PlatformOrganisationController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\Public\BookingController as PublicBookingController;
 use App\Http\Controllers\Api\Public\EventController as PublicEventController;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripeAccountWebhook;
 use App\Http\Resources\UserResource;
@@ -51,6 +52,8 @@ Route::prefix('public')->group(function () {
         Route::get('/details/{unique_id}', [PublicEventController::class, 'details']);
         Route::get('/tickets/{unique_id}', [PublicEventController::class, 'tickets']);
     });
+
+    Route::post('/start-booking-ticket', [PublicBookingController::class, 'startBookingTicket']);
 });
 
 Route::middleware('jwt')->group(function () {
