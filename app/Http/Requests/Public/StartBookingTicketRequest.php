@@ -5,6 +5,7 @@ namespace App\Http\Requests\Public;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Validator;
 
 class StartBookingTicketRequest extends FormRequest
 {
@@ -21,8 +22,9 @@ class StartBookingTicketRequest extends FormRequest
         $isGuest = ! filled($this->bearerToken());
 
         return [
-            'offer_id' => ['required', 'array', 'min:1'],
-            'offer_id.*' => ['required', 'integer', 'distinct', 'exists:event_ticket_offers,id'],
+            'offers' => ['required', 'array', 'min:1'],
+            'offers.*.offer_id' => ['required', 'integer', 'exists:event_ticket_offers,id'],
+            'offers.*.qty' => ['required', 'integer', 'min:1'],
             'name' => [$isGuest ? 'required' : 'nullable', 'string', 'max:255'],
             'email' => [$isGuest ? 'required' : 'nullable', 'string', 'email', 'max:255'],
         ];
@@ -34,13 +36,15 @@ class StartBookingTicketRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'offer_id.required' => __('validation.required'),
-            'offer_id.array' => __('validation.array'),
-            'offer_id.min' => __('validation.min.array'),
-            'offer_id.*.required' => __('validation.required'),
-            'offer_id.*.integer' => __('validation.integer'),
-            'offer_id.*.distinct' => __('validation.distinct'),
-            'offer_id.*.exists' => __('validation.exists'),
+            'offers.required' => __('validation.required'),
+            'offers.array' => __('validation.array'),
+            'offers.min' => __('validation.min.array'),
+            'offers.*.offer_id.required' => __('validation.required'),
+            'offers.*.offer_id.integer' => __('validation.integer'),
+            'offers.*.offer_id.exists' => __('validation.exists'),
+            'offers.*.qty.required' => __('validation.required'),
+            'offers.*.qty.integer' => __('validation.integer'),
+            'offers.*.qty.min' => __('validation.min.numeric'),
             'name.required' => __('validation.required'),
             'name.string' => __('validation.string'),
             'name.max' => __('validation.max.string'),
@@ -57,8 +61,9 @@ class StartBookingTicketRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'offer_id' => 'offer ids',
-            'offer_id.*' => 'offer id',
+            'offers' => 'offers',
+            'offers.*.offer_id' => 'offer id',
+            'offers.*.qty' => 'quantity',
             'name' => 'name',
             'email' => 'email',
         ];
@@ -71,5 +76,25 @@ class StartBookingTicketRequest extends FormRequest
                 'email' => Str::lower($this->string('email')->toString()),
             ]);
         }
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $offers = $this->input('offers');
+
+            if (! is_array($offers)) {
+                return;
+            }
+
+            $offerIds = collect($offers)
+                ->pluck('offer_id')
+                ->filter(fn ($id): bool => filled($id))
+                ->map(fn ($id): int => (int) $id);
+
+            if ($offerIds->count() !== $offerIds->unique()->count()) {
+                $validator->errors()->add('offers', 'Duplicate offer ids are not allowed.');
+            }
+        });
     }
 }

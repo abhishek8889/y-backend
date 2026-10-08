@@ -11,7 +11,7 @@ class BookingService extends Service
      * Start a public ticket booking checkout.
      *
      * @param  array{
-     *     offer_id: list<int>,
+     *     offers: list<array{offer_id: int, qty: int}>,
      *     name?: string|null,
      *     email?: string|null
      * }  $data
@@ -20,7 +20,7 @@ class BookingService extends Service
     public function startBookingTicket(?User $user, array $data): array
     {
         // TODO: resolve/create guest user, validate offers, create pending order + PaymentIntent.
-
+        
         return [];
     }
 }
