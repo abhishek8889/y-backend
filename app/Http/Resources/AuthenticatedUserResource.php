@@ -30,7 +30,10 @@ class AuthenticatedUserResource extends JsonResource
             'scope' => $this->resource['scope'],
             'roles' => $this->resource['roles'],
             'organisation_id' => $this->resource['organisation_id'],
-            'permissions' => $permissions === [] ? (object) [] : $permissions,
+            'permissions' => $this->when(
+                array_key_exists('permissions', $this->resource),
+                $permissions === [] ? (object) [] : $permissions,
+            ),
             'organisation_approve_status' => $this->when(
                 array_key_exists('organisation_approve_status', $this->resource),
                 $this->resource['organisation_approve_status'] ?? null,

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Organisation\StaffMemberController;
 use App\Http\Controllers\Api\Organisation\VenueController;
 use App\Http\Controllers\Api\Platform\OrganisationController as PlatformOrganisationController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\Public\AuthController as PublicAuthController;
 use App\Http\Controllers\Api\Public\BookingController as PublicBookingController;
 use App\Http\Controllers\Api\Public\EventController as PublicEventController;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripeAccountWebhook;
@@ -53,7 +54,10 @@ Route::prefix('public')->group(function () {
         Route::get('/tickets/{unique_id}', [PublicEventController::class, 'tickets']);
     });
 
-    Route::post('/start-booking-ticket', [PublicBookingController::class, 'startBookingTicket']);
+    Route::post('/send-login-otp', [PublicAuthController::class, 'sendLoginOtp'])
+        ->middleware('throttle:login');
+    Route::post('/verify-login-otp', [PublicAuthController::class, 'verifyLoginOtp'])
+        ->middleware('throttle:login');
 });
 
 Route::middleware('jwt')->group(function () {
@@ -70,6 +74,11 @@ Route::middleware('jwt')->group(function () {
     Route::prefix('media')->group(function () {
         Route::post('/upload', [MediaController::class, 'upload'])->name('media.upload');
         Route::delete('/', [MediaController::class, 'delete'])->name('media.delete');
+    });
+
+    // ########### Public Auth Routes ##################
+    Route::prefix('public')->group(function () {
+        Route::post('/start-booking-ticket', [PublicBookingController::class, 'startBookingTicket']);
     });
 
     Route::get('/my-org/details', [OrganisationController::class, 'getOrganisationDetail']);
