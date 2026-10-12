@@ -10,6 +10,7 @@ use App\Models\Event;
 use App\Models\EventTicket;
 use App\Models\EventTicketOffer;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Organisation;
 use App\Models\Payment;
 use App\Models\User;
@@ -17,6 +18,7 @@ use App\Services\JwtTokenService;
 use App\Services\StripeService;
 use App\Support\UniqueIdGenerator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Mockery\MockInterface;
 
 function customerToken(User $user): string
@@ -230,4 +232,141 @@ test('start booking rejects when remaining inventory is insufficient', function 
         ])
         ->assertUnprocessable()
         ->assertJsonPath('message', __('messages.public_booking_offer_quantity_exceeded'));
+});
+
+test('start booking rejects when paid sales leave insufficient remaining quantity', function () {
+    Carbon::setTestNow(Carbon::parse('2026-10-06 12:00:00'));
+
+    ['offer' => $offer] = publishedBookableOffer([
+        'quantity_cap' => 200,
+        'max_per_order' => 100,
+    ]);
+    $buyer = User::factory()->create();
+
+    $paidOrder = Order::query()->create([
+        'unique_id' => UniqueIdGenerator::generate('ORD', 12),
+        'checkout_key' => (string) Str::uuid(),
+        'user_id' => $buyer->id,
+        'status' => OrderStatusEnum::PAID,
+        'subtotal' => '3000.00',
+        'discount_amount' => '0.00',
+        'platform_fee_amount' => '0.00',
+        'total_amount' => '3000.00',
+        'currency' => 'GBP',
+        'customer_name' => 'Paid Buyer',
+        'customer_email' => 'paid@example.com',
+    ]);
+
+    OrderItem::query()->create([
+        'order_id' => $paidOrder->id,
+        'event_id' => $offer->ticket->event_id,
+        'organisation_id' => $offer->ticket->event->organisation_id,
+        'event_ticket_id' => $offer->event_ticket_id,
+        'ticket_offer_id' => $offer->id,
+        'ticket_name' => 'General Admission',
+        'offer_name' => $offer->name,
+        'quantity' => 150,
+        'unit_price' => '20.00',
+        'discount_amount' => '0.00',
+        'total_price' => '3000.00',
+        'platform_fee_rate' => '0.00',
+        'platform_share_amount' => '0.00',
+        'organiser_share_amount' => '3000.00',
+        'currency' => 'GBP',
+    ]);
+
+    $customer = User::factory()->create();
+
+    test()->withToken(customerToken($customer))
+        ->postJson('/api/public/start-booking-ticket', [
+            'offers' => [
+                ['offer_id' => $offer->id, 'qty' => 51],
+            ],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonPath('message', __('messages.public_booking_offer_quantity_exceeded'));
+
+    mockStripePaymentIntent();
+
+    test()->withToken(customerToken($customer))
+        ->postJson('/api/public/start-booking-ticket', [
+            'offers' => [
+                ['offer_id' => $offer->id, 'qty' => 50],
+            ],
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.order.items.0.quantity', 50);
+});
+
+test('start booking rejects sold out offers', function () {
+    Carbon::setTestNow(Carbon::parse('2026-10-06 12:00:00'));
+
+    ['offer' => $offer] = publishedBookableOffer([
+        'status' => EventTicketOfferStatusEnum::SOLD_OUT,
+    ]);
+    $customer = User::factory()->create();
+
+    test()->withToken(customerToken($customer))
+        ->postJson('/api/public/start-booking-ticket', [
+            'offers' => [
+                ['offer_id' => $offer->id, 'qty' => 1],
+            ],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonPath('message', __('messages.public_booking_offer_sold_out'));
+});
+
+test('start booking ignores expired pending holds when calculating remaining quantity', function () {
+    Carbon::setTestNow(Carbon::parse('2026-10-06 12:00:00'));
+    mockStripePaymentIntent();
+
+    ['offer' => $offer] = publishedBookableOffer([
+        'quantity_cap' => 2,
+        'max_per_order' => 5,
+    ]);
+    $holder = User::factory()->create();
+
+    $expiredOrder = Order::query()->create([
+        'unique_id' => UniqueIdGenerator::generate('ORD', 12),
+        'checkout_key' => (string) Str::uuid(),
+        'user_id' => $holder->id,
+        'status' => OrderStatusEnum::PENDING,
+        'subtotal' => '40.00',
+        'discount_amount' => '0.00',
+        'platform_fee_amount' => '0.00',
+        'total_amount' => '40.00',
+        'currency' => 'GBP',
+        'customer_name' => 'Expired Holder',
+        'customer_email' => 'expired@example.com',
+        'expires_at' => Carbon::parse('2026-10-06 11:00:00'),
+    ]);
+
+    OrderItem::query()->create([
+        'order_id' => $expiredOrder->id,
+        'event_id' => $offer->ticket->event_id,
+        'organisation_id' => $offer->ticket->event->organisation_id,
+        'event_ticket_id' => $offer->event_ticket_id,
+        'ticket_offer_id' => $offer->id,
+        'ticket_name' => 'General Admission',
+        'offer_name' => $offer->name,
+        'quantity' => 2,
+        'unit_price' => '20.00',
+        'discount_amount' => '0.00',
+        'total_price' => '40.00',
+        'platform_fee_rate' => '0.00',
+        'platform_share_amount' => '0.00',
+        'organiser_share_amount' => '40.00',
+        'currency' => 'GBP',
+    ]);
+
+    $customer = User::factory()->create();
+
+    test()->withToken(customerToken($customer))
+        ->postJson('/api/public/start-booking-ticket', [
+            'offers' => [
+                ['offer_id' => $offer->id, 'qty' => 2],
+            ],
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.order.items.0.quantity', 2);
 });

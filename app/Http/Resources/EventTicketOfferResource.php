@@ -23,6 +23,10 @@ class EventTicketOfferResource extends JsonResource
             'name' => $this->name,
             'price' => $this->price,
             'quantity_cap' => $this->quantity_cap,
+            'remaining_quantity' => $this->when(
+                array_key_exists('remaining_quantity', $this->resource->getAttributes()),
+                fn () => (int) $this->remaining_quantity,
+            ),
             'sale_starts_at' => $this->sale_starts_at,
             'sale_ends_at' => $this->sale_ends_at,
             'max_per_order' => $this->max_per_order,

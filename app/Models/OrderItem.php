@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Enum\OrderStatusEnum;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * @property int $id
@@ -109,5 +113,49 @@ class OrderItem extends Model
     public function refunds(): HasMany
     {
         return $this->hasMany(Refund::class);
+    }
+
+    /**
+     * Order items that consume offer inventory: paid/partially refunded sales,
+     * plus non-expired pending checkout holds.
+     */
+    #[Scope]
+    protected function consumingOfferInventory(Builder $query): void
+    {
+        $query->whereHas('order', function (Builder $orderQuery): void {
+            $orderQuery->where(function (Builder $statusQuery): void {
+                $statusQuery->whereIn('status', [
+                    OrderStatusEnum::PAID,
+                    OrderStatusEnum::PARTIALLY_REFUNDED,
+                ])->orWhere(function (Builder $pendingQuery): void {
+                    $pendingQuery->where('status', OrderStatusEnum::PENDING)
+                        ->where(function (Builder $expiresQuery): void {
+                            $expiresQuery->whereNull('expires_at')
+                                ->orWhere('expires_at', '>', now());
+                        });
+                });
+            });
+        });
+    }
+
+    /**
+     * Sum inventory-consuming quantities grouped by ticket offer id.
+     *
+     * @param  list<int>  $offerIds
+     * @return Collection<int, int> offer_id => quantity
+     */
+    public static function consumedQuantitiesByOfferIds(array $offerIds): Collection
+    {
+        if ($offerIds === []) {
+            return collect();
+        }
+
+        return self::query()
+            ->selectRaw('ticket_offer_id, SUM(quantity) as total_quantity')
+            ->whereIn('ticket_offer_id', $offerIds)
+            ->consumingOfferInventory()
+            ->groupBy('ticket_offer_id')
+            ->pluck('total_quantity', 'ticket_offer_id')
+            ->map(fn ($quantity): int => (int) $quantity);
     }
 }

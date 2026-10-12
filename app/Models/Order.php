@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $expires_at
  * @property Carbon|null $paid_at
  * @property Carbon|null $cancelled_at
+ * @property Carbon|null $confirmation_email_sent_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -50,6 +51,7 @@ use Illuminate\Support\Carbon;
     'expires_at',
     'paid_at',
     'cancelled_at',
+    'confirmation_email_sent_at',
 ])]
 class Order extends Model
 {
@@ -67,6 +69,7 @@ class Order extends Model
             'expires_at' => 'datetime',
             'paid_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'confirmation_email_sent_at' => 'datetime',
         ];
     }
 

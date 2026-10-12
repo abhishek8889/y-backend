@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\Public\AuthController as PublicAuthController;
 use App\Http\Controllers\Api\Public\BookingController as PublicBookingController;
 use App\Http\Controllers\Api\Public\EventController as PublicEventController;
+use App\Http\Controllers\Api\Public\WishlistController as PublicWishlistController;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripeAccountWebhook;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripePaymentWebhook;
 use App\Http\Resources\UserResource;
@@ -80,6 +81,9 @@ Route::middleware('jwt')->group(function () {
     // ########### Public Auth Routes ##################
     Route::prefix('public')->group(function () {
         Route::post('/start-booking-ticket', [PublicBookingController::class, 'startBookingTicket']);
+        Route::get('/get-wishlist', [PublicWishlistController::class, 'list']);
+        Route::post('/move-to-wishlist', [PublicWishlistController::class, 'store']);
+        Route::post('/remove-from-wishlist', [PublicWishlistController::class, 'remove']);
     });
 
     Route::get('/my-org/details', [OrganisationController::class, 'getOrganisationDetail']);

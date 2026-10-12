@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\WebhookEvent;
+use App\Services\OrderConfirmationMailService;
 use App\Services\OrganiserBalanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,6 +36,7 @@ class StripePaymentWebhook extends Controller
 {
     public function __construct(
         private readonly OrganiserBalanceService $organiserBalances,
+        private readonly OrderConfirmationMailService $orderConfirmations,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -154,14 +156,14 @@ class StripePaymentWebhook extends Controller
             return false;
         }
 
-        return DB::transaction(function () use ($payment, $paymentIntent): bool {
+        $order = DB::transaction(function () use ($payment, $paymentIntent): Order {
             /** @var Payment $payment */
             $payment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
             $order = Order::query()->whereKey($payment->order_id)->lockForUpdate()->firstOrFail();
 
             if ($payment->status === PaymentStatusEnum::SUCCEEDED
                 && $order->status === OrderStatusEnum::PAID) {
-                return true;
+                return $order;
             }
 
             $paidAt = Carbon::now();
@@ -184,8 +186,12 @@ class StripePaymentWebhook extends Controller
 
             $this->organiserBalances->creditReservedEarnings($order);
 
-            return true;
+            return $order->fresh() ?? $order;
         });
+
+        $this->orderConfirmations->sendAfterSuccessfulPayment($order);
+
+        return true;
     }
 
     /**

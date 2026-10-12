@@ -52,15 +52,24 @@ class BookingService extends Service
         $validatedOffers = $this->validateBookableOffers($data['offers']);
 
         return DB::transaction(function () use ($user, $validatedOffers): array {
-            $offerIds = array_map(fn (array $item): int => $item['offer_id'], $validatedOffers);
+            // Sort IDs so concurrent multi-offer bookings always lock rows in the same order.
+            $offerIds = collect($validatedOffers)
+                ->pluck('offer_id')
+                ->map(fn ($id): int => (int) $id)
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
 
             /** @var Collection<int, EventTicketOffer> $lockedOffers */
             $lockedOffers = EventTicketOffer::query()
                 ->whereIn('id', $offerIds)
-                ->with(['ticket.event.organisation'])
+                ->orderBy('id')
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
+
+            $lockedOffers->load(['ticket.event.organisation']);
 
             $lineItems = [];
             $subtotal = 0.0;
@@ -293,7 +302,6 @@ class BookingService extends Service
             ->keyBy('id');
 
         $validated = [];
-
         foreach ($offers as $item) {
             $offerId = (int) $item['offer_id'];
             $qty = (int) $item['qty'];
@@ -310,13 +318,6 @@ class BookingService extends Service
                 $this->fail(
                     Response::HTTP_UNPROCESSABLE_ENTITY,
                     __('messages.public_booking_offer_sold_out'),
-                );
-            }
-
-            if ($qty > $offer->quantity_cap) {
-                $this->fail(
-                    Response::HTTP_UNPROCESSABLE_ENTITY,
-                    __('messages.public_booking_offer_quantity_exceeded'),
                 );
             }
 
@@ -339,23 +340,8 @@ class BookingService extends Service
 
     private function remainingOfferQuantity(EventTicketOffer $offer): int
     {
-        $held = (int) OrderItem::query()
-            ->where('ticket_offer_id', $offer->id)
-            ->whereHas('order', function ($query): void {
-                $query->where(function ($statusQuery): void {
-                    $statusQuery->whereIn('status', [
-                        OrderStatusEnum::PAID,
-                        OrderStatusEnum::PARTIALLY_REFUNDED,
-                    ])->orWhere(function ($pendingQuery): void {
-                        $pendingQuery->where('status', OrderStatusEnum::PENDING)
-                            ->where(function ($expiresQuery): void {
-                                $expiresQuery->whereNull('expires_at')
-                                    ->orWhere('expires_at', '>', now());
-                            });
-                    });
-                });
-            })
-            ->sum('quantity');
+        $held = (int) OrderItem::consumedQuantitiesByOfferIds([$offer->id])
+            ->get($offer->id, 0);
 
         return max(0, $offer->quantity_cap - $held);
     }

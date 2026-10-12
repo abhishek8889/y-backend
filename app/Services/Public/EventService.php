@@ -8,6 +8,7 @@ use App\Enum\EventTicketStatusEnum;
 use App\Http\Responses\CursorPaginatedResponse;
 use App\Models\Event;
 use App\Models\EventTicket;
+use App\Models\OrderItem;
 use App\Models\Organisation;
 use App\Services\Service;
 use Illuminate\Contracts\Pagination\CursorPaginator;
@@ -168,9 +169,35 @@ class EventService extends Service
             ->orderBy('id')
             ->get();
 
+        $this->attachOfferRemainingQuantities($tickets);
+
         return [
             'tickets' => $tickets,
         ];
+    }
+
+    /**
+     * @param  Collection<int, EventTicket>  $tickets
+     */
+    private function attachOfferRemainingQuantities(Collection $tickets): void
+    {
+        $offers = $tickets->flatMap(fn (EventTicket $ticket) => $ticket->offers);
+
+        if ($offers->isEmpty()) {
+            return;
+        }
+
+        $consumedByOfferId = OrderItem::consumedQuantitiesByOfferIds(
+            $offers->pluck('id')->map(fn ($id): int => (int) $id)->all(),
+        );
+
+        foreach ($offers as $offer) {
+            $consumed = $consumedByOfferId->get($offer->id, 0);
+            $offer->setAttribute(
+                'remaining_quantity',
+                max(0, (int) $offer->quantity_cap - $consumed),
+            );
+        }
     }
 
     /**
