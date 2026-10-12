@@ -15,6 +15,12 @@ return [
     'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
 
     /*
+    | Payment Intent webhook endpoint signing secret.
+    | Falls back to STRIPE_WEBHOOK_SECRET when unset.
+    */
+    'payment_webhook_secret' => env('STRIPE_PAYMENT_WEBHOOK_SECRET', env('STRIPE_WEBHOOK_SECRET')),
+
+    /*
     |--------------------------------------------------------------------------
     | Connect defaults
     |--------------------------------------------------------------------------

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Organisation;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organisation\ManageEventStatusRequest;
+use App\Http\Requests\Organisation\StoreCustomEventCategoryRequest;
 use App\Http\Requests\Organisation\StoreEventRequest;
 use App\Http\Requests\Organisation\StoreEventTicketOfferRequest;
 use App\Http\Requests\Organisation\StoreEventTicketRequest;
@@ -225,6 +226,23 @@ class EventController extends Controller
     }
 
     /**
+     * Get event details for the authenticated organiser's organisation.
+     */
+    public function details(Request $request, EventService $event, int $event_id): JsonResponse
+    {
+        try {
+            $response = $event->details($request->user(), $event_id);
+
+            return $this->success(
+                __('messages.event_details'),
+                EventResource::make($response['event']),
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
      * List events for the authenticated organiser's organisation.
      */
     public function list(Request $request, EventService $event): JsonResponse
@@ -239,6 +257,12 @@ class EventController extends Controller
                     : null,
                 'search' => $request->filled('search')
                     ? $request->string('search')->toString()
+                    : null,
+                'starts_at' => $request->filled('starts_at')
+                    ? $request->string('starts_at')->toString()
+                    : null,
+                'ends_at' => $request->filled('ends_at')
+                    ? $request->string('ends_at')->toString()
                     : null,
                 'per_page' => $request->filled('per_page')
                     ? $request->integer('per_page')
@@ -303,20 +327,42 @@ class EventController extends Controller
     }
 
     /**
-     * List system event categories and optional organisation-specific categories.
+     * List system event categories (organisation_id null) plus the authenticated organisation's categories.
      */
     public function getEventCategoryList(Request $request, EventService $event): JsonResponse
     {
         try {
-            $organisationId = $request->filled('organisation_id')
-                ? $request->integer('organisation_id')
-                : null;
+            $user = $request->user();
+            $organisationId = $user?->organisationLoginContext()['organisation_id']
+                ?? $user?->loginContext()['organisation_id']
+                ?? null;
 
-            $response = $event->getEventCategoryList($organisationId);
+            $response = $event->getEventCategoryList(
+                is_int($organisationId) ? $organisationId : null,
+            );
 
             return $this->success(
                 __('messages.event_categories_list'),
                 EventCategoryResource::collection($response['categories']),
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * Create a custom event category for the authenticated organiser's organisation.
+     */
+    public function createCustomCategory(
+        StoreCustomEventCategoryRequest $request,
+        EventService $event,
+    ): JsonResponse {
+        try {
+            $response = $event->createCustomCategory($request->user(), $request->validated());
+
+            return $this->success(
+                __('messages.event_category_created'),
+                EventCategoryResource::make($response['category']),
             );
         } catch (Throwable $exception) {
             return $this->failed($exception);

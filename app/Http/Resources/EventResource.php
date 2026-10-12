@@ -54,6 +54,8 @@ class EventResource extends JsonResource
             'timezone' => $this->timezone,
             'status' => $this->status?->value ?? $this->status,
             'published_at' => $this->published_at,
+            'completed_at' => $this->completed_at,
+            'cancelled_at' => $this->cancelled_at,
             'images' => $this->whenLoaded(
                 'images',
                 fn () => EventImageResource::collection($this->images),

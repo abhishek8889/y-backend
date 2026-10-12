@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organisation;
 
+use App\Enum\EventStatusEnum;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,6 +30,7 @@ class UpdateEventRequest extends FormRequest
             'starts_at' => ['nullable', 'date', 'after_or_equal:'.$nowUtc],
             'ends_at' => ['nullable', 'date', 'after:starts_at', 'after_or_equal:'.$nowUtc],
             'timezone' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'string', Rule::in(EventStatusEnum::values())],
 
             'images' => ['nullable', 'array'],
             'images.*.id' => ['nullable', 'integer', 'exists:event_images,id'],
@@ -50,6 +52,7 @@ class UpdateEventRequest extends FormRequest
             'venue_id' => 'venue',
             'starts_at' => 'start date and time',
             'ends_at' => 'end date and time',
+            'status' => 'event status',
             'images.*.type' => 'image type',
             'images.*.path' => 'image path',
         ];

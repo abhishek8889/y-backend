@@ -21,6 +21,7 @@ use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -32,7 +33,7 @@ class EventService extends Service
 
     /**
      * Create an event for the authenticated organiser's organisation.
-     * New events are always saved as draft until tickets exist.
+     * Status defaults to draft when omitted by the client.
      *
      * @param  array<string, mixed>  $data
      * @return array{event: Event}
@@ -54,9 +55,13 @@ class EventService extends Service
 
         $this->assertOwnedImagePaths($user, $images);
 
+        $status = isset($data['status'])
+            ? EventStatusEnum::from((string) $data['status'])
+            : EventStatusEnum::DRAFT;
+
         try {
             /** @var Event $event */
-            $event = DB::transaction(function () use ($user, $organisation, $data, $images): Event {
+            $event = DB::transaction(function () use ($user, $organisation, $data, $images, $status): Event {
                 $uniqueId = UniqueIdGenerator::generate('EVT');
                 $attempts = 0;
 
@@ -79,8 +84,10 @@ class EventService extends Service
                     'starts_at' => $data['starts_at'] ?? null,
                     'ends_at' => $data['ends_at'] ?? null,
                     'timezone' => $data['timezone'] ?? null,
-                    'status' => EventStatusEnum::DRAFT,
-                    'published_at' => null,
+                    'status' => $status,
+                    'published_at' => $status === EventStatusEnum::PUBLISHED
+                        ? Carbon::now()
+                        : null,
                     'created_by' => $user->id,
                     'updated_by' => $user->id,
                 ]);
@@ -113,7 +120,7 @@ class EventService extends Service
 
     /**
      * Update an event for the authenticated organiser's organisation.
-     * Status is managed separately via manage-status.
+     * Optional status defaults to the current value; transitions use the same rules as manage-status.
      *
      * @param  array<string, mixed>  $data
      * @return array{event: Event}
@@ -147,8 +154,24 @@ class EventService extends Service
             $this->assertUpdateImagePayload($user, $event, $images);
         }
 
+        $status = isset($data['status'])
+            ? EventStatusEnum::from((string) $data['status'])
+            : $event->status;
+
+        if ($status !== $event->status) {
+            match ($status) {
+                EventStatusEnum::PUBLISHED => $this->assertCanPublish($event),
+                EventStatusEnum::CANCELLED => $this->assertCanCancel($event),
+                EventStatusEnum::COMPLETED => $this->assertCanComplete($event),
+                EventStatusEnum::DRAFT => $this->fail(
+                    Response::HTTP_UNPROCESSABLE_ENTITY,
+                    __('messages.event_cannot_revert_to_draft'),
+                ),
+            };
+        }
+
         try {
-            DB::transaction(function () use ($user, $event, $data, $images): void {
+            DB::transaction(function () use ($user, $event, $data, $images, $status): void {
                 $event->update([
                     'name' => $data['name'],
                     'event_category_id' => $data['event_category_id'] ?? null,
@@ -158,6 +181,16 @@ class EventService extends Service
                     'starts_at' => $data['starts_at'] ?? null,
                     'ends_at' => $data['ends_at'] ?? null,
                     'timezone' => $data['timezone'] ?? null,
+                    'status' => $status,
+                    'published_at' => $status === EventStatusEnum::PUBLISHED
+                        ? ($event->published_at ?? Carbon::now())
+                        : $event->published_at,
+                    'cancelled_at' => $status === EventStatusEnum::CANCELLED
+                        ? ($event->cancelled_at ?? Carbon::now())
+                        : $event->cancelled_at,
+                    'completed_at' => $status === EventStatusEnum::COMPLETED
+                        ? ($event->completed_at ?? Carbon::now())
+                        : $event->completed_at,
                     'updated_by' => $user->id,
                 ]);
 
@@ -188,9 +221,26 @@ class EventService extends Service
     }
 
     /**
+     * Get event details (event record + images) for the authenticated organiser's organisation.
+     *
+     * @return array{event: Event}
+     */
+    public function details(User $user, int $eventId): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+        $event = $this->resolveOrganisationEvent($organisation->id, $eventId);
+
+        $event->load(['images']);
+
+        return [
+            'event' => $event,
+        ];
+    }
+
+    /**
      * List events for the authenticated organiser's organisation.
      *
-     * @param  array{status?: string|null, event_category_id?: int|null, search?: string|null, per_page?: int|null, cursor?: string|null}  $filters
+     * @param  array{status?: string|null, event_category_id?: int|null, search?: string|null, starts_at?: string|null, ends_at?: string|null, per_page?: int|null, cursor?: string|null}  $filters
      * @return array{paginator: CursorPaginator}
      */
     public function list(User $user, array $filters = []): array
@@ -200,6 +250,8 @@ class EventService extends Service
         $status = $filters['status'] ?? null;
         $eventCategoryId = $filters['event_category_id'] ?? null;
         $search = isset($filters['search']) ? trim((string) $filters['search']) : null;
+        $startsAt = filled($filters['starts_at'] ?? null) ? (string) $filters['starts_at'] : null;
+        $endsAt = filled($filters['ends_at'] ?? null) ? (string) $filters['ends_at'] : null;
         $perPage = CursorPaginatedResponse::resolvePerPage($filters['per_page'] ?? null);
 
         $paginator = Event::query()
@@ -221,6 +273,16 @@ class EventService extends Service
                             ->orWhere('unique_id', 'like', '%'.$search.'%');
                     });
                 },
+            )
+            ->when(
+                $startsAt !== null,
+                fn ($query) => $query->whereNotNull('ends_at')
+                    ->where('ends_at', '>=', $startsAt),
+            )
+            ->when(
+                $endsAt !== null,
+                fn ($query) => $query->whereNotNull('starts_at')
+                    ->where('starts_at', '<=', $endsAt),
             )
             ->with(['category', 'venue', 'images'])
             ->orderByDesc('id')
@@ -321,7 +383,9 @@ class EventService extends Service
                     'quantity_cap' => $data['quantity_cap'],
                     'badge_label' => $data['badge_label'] ?? null,
                     'entitlement' => $data['entitlement'] ?? null,
-                    'status' => EventTicketStatusEnum::DRAFT,
+                    'status' => isset($data['status'])
+                        ? EventTicketStatusEnum::from((string) $data['status'])
+                        : EventTicketStatusEnum::DRAFT,
                     'sort_order' => $data['sort_order'] ?? 0,
                     'created_by' => $user->id,
                     'updated_by' => $user->id,
@@ -512,7 +576,9 @@ class EventService extends Service
                     'sale_ends_at' => $data['sale_ends_at'] ?? null,
                     'max_per_order' => $data['max_per_order'] ?? null,
                     'access' => $data['access'] ?? 'public',
-                    'status' => $data['status'] ?? EventTicketOfferStatusEnum::DRAFT,
+                    'status' => isset($data['status'])
+                        ? EventTicketOfferStatusEnum::from((string) $data['status'])
+                        : EventTicketOfferStatusEnum::DRAFT,
                     'sort_order' => $data['sort_order'] ?? 0,
                     'created_by' => $user->id,
                     'updated_by' => $user->id,
@@ -696,6 +762,12 @@ class EventService extends Service
                 $event->published_at = $target === EventStatusEnum::PUBLISHED
                     ? ($event->published_at ?? Carbon::now())
                     : $event->published_at;
+                $event->completed_at = $target === EventStatusEnum::COMPLETED
+                    ? ($event->completed_at ?? Carbon::now())
+                    : $event->completed_at;
+                $event->cancelled_at = $target === EventStatusEnum::CANCELLED
+                    ? ($event->cancelled_at ?? Carbon::now())
+                    : $event->cancelled_at;
                 $event->updated_by = $user->id;
                 $event->save();
             });
@@ -741,6 +813,49 @@ class EventService extends Service
 
         return [
             'categories' => $categories,
+        ];
+    }
+
+    /**
+     * Create an organisation-specific event category.
+     *
+     * @param  array{name: string}  $data
+     * @return array{category: EventCategory}
+     */
+    public function createCustomCategory(User $user, array $data): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+        $name = trim((string) $data['name']);
+
+        if ($name === '') {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.event_category_invalid_name'),
+            );
+        }
+
+        $alreadyExists = EventCategory::query()
+            ->whereRaw('LOWER(name) = ?', [Str::lower($name)])
+            ->where(function ($query) use ($organisation): void {
+                $query->whereNull('organisation_id')
+                    ->orWhere('organisation_id', $organisation->id);
+            })
+            ->exists();
+
+        if ($alreadyExists) {
+            $this->fail(
+                Response::HTTP_BAD_REQUEST,
+                __('messages.event_category_already_exists'),
+            );
+        }
+
+        $category = EventCategory::query()->create([
+            'organisation_id' => $organisation->id,
+            'name' => $name,
+        ]);
+
+        return [
+            'category' => $category,
         ];
     }
 
@@ -852,7 +967,7 @@ class EventService extends Service
 
         if (($existingTotal + $incomingQuantityCap) > (int) $event->capacity) {
             $this->fail(
-                Response::HTTP_UNPROCESSABLE_ENTITY,
+                Response::HTTP_BAD_REQUEST,
                 __('messages.event_ticket_quantity_exceeds_event_capacity'),
             );
         }

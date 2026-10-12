@@ -23,6 +23,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $timezone
  * @property EventStatusEnum $status
  * @property Carbon|null $published_at
+ * @property Carbon|null $completed_at
+ * @property Carbon|null $cancelled_at
  * @property int|null $created_by
  * @property int|null $updated_by
  * @property Carbon|null $created_at
@@ -41,6 +43,8 @@ use Illuminate\Support\Carbon;
     'timezone',
     'status',
     'published_at',
+    'completed_at',
+    'cancelled_at',
     'created_by',
     'updated_by',
 ])]
@@ -56,6 +60,8 @@ class Event extends Model
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'published_at' => 'datetime',
+            'completed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
             'status' => EventStatusEnum::class,
         ];
     }

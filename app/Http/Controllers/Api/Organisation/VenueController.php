@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Organisation;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organisation\ManageVenueStatusRequest;
 use App\Http\Requests\Organisation\StoreCustomFacilityRequest;
 use App\Http\Requests\Organisation\StoreCustomSuitableForOptionRequest;
 use App\Http\Requests\Organisation\StoreVenueRequest;
@@ -53,6 +54,45 @@ class VenueController extends Controller
     }
 
     /**
+     * Manage venue status (active / inactive) for the authenticated organiser's organisation.
+     */
+    public function manageStatus(ManageVenueStatusRequest $request, VenueService $venue): JsonResponse
+    {
+        try {
+            $validated = $request->validated();
+            $response = $venue->manageStatus(
+                $request->user(),
+                (int) $validated['venue_id'],
+                (string) $validated['status'],
+            );
+
+            return $this->success(
+                __('messages.venue_status_updated'),
+                VenueResource::make($response['venue']),
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * Duplicate a venue for the authenticated organiser's organisation.
+     */
+    public function duplicate(Request $request, VenueService $venue, int $venue_id): JsonResponse
+    {
+        try {
+            $response = $venue->duplicate($request->user(), $venue_id);
+
+            return $this->success(
+                __('messages.venue_duplicated'),
+                VenueResource::make($response['venue']),
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
      * Delete a venue for the authenticated organiser's organisation.
      */
     public function delete(Request $request, VenueService $venue, int $venue_id): JsonResponse
@@ -62,6 +102,40 @@ class VenueController extends Controller
 
             return $this->success(
                 __('messages.venue_deleted'),
+                $response,
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * Active venues for event creation/selection.
+     */
+    public function listForEvents(Request $request, VenueService $venue): JsonResponse
+    {
+        try {
+            $response = $venue->listForEvents($request->user());
+
+            return $this->success(
+                __('messages.venue_list_for_events'),
+                $response['venues'],
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * Venue page overview counts for the authenticated organiser's organisation.
+     */
+    public function pageOverview(Request $request, VenueService $venue): JsonResponse
+    {
+        try {
+            $response = $venue->pageOverview($request->user());
+
+            return $this->success(
+                __('messages.venue_page_overview'),
                 $response,
             );
         } catch (Throwable $exception) {

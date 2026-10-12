@@ -69,14 +69,14 @@ class RolePermissionService extends Service
     }
 
     /**
-     * Get a role for the authenticated organisation by slug, with permissions.
+     * Get a role for the authenticated organisation by id, with permissions.
      *
      * @return array{role: Role}
      */
-    public function getRoleWithPermissions(User $user, string $roleSlug): array
+    public function getRoleWithPermissions(User $user, int $roleId): array
     {
         $organisation = $this->organisation->getOrganisationDetail($user)['organisation'];
-        $role = $this->resolveOrganisationRole($organisation->id, $roleSlug);
+        $role = $this->resolveOrganisationRole($organisation->id, $roleId);
 
         $role->load([
             'permissions' => static fn ($query) => $query
@@ -156,10 +156,10 @@ class RolePermissionService extends Service
      * }  $data
      * @return array{role: Role}
      */
-    public function updateRoleWithPermission(User $user, string $roleSlug, array $data): array
+    public function updateRoleWithPermission(User $user, int $roleId, array $data): array
     {
         $organisation = $this->organisation->getOrganisationDetail($user)['organisation'];
-        $role = $this->resolveOrganisationRole($organisation->id, $roleSlug);
+        $role = $this->resolveOrganisationRole($organisation->id, $roleId);
 
         if ($role->slug === RoleEnum::OWNER->value) {
             $this->fail(
@@ -210,11 +210,11 @@ class RolePermissionService extends Service
         ];
     }
 
-    private function resolveOrganisationRole(int $organisationId, string $roleSlug): Role
+    private function resolveOrganisationRole(int $organisationId, int $roleId): Role
     {
         $role = Role::query()
             ->where('organisation_id', $organisationId)
-            ->where('slug', trim($roleSlug))
+            ->whereKey($roleId)
             ->first();
 
         if ($role === null) {

@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Public\AuthController as PublicAuthController;
 use App\Http\Controllers\Api\Public\BookingController as PublicBookingController;
 use App\Http\Controllers\Api\Public\EventController as PublicEventController;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripeAccountWebhook;
+use App\Http\Controllers\Api\Webhooks\Stripe\StripePaymentWebhook;
 use App\Http\Resources\UserResource;
 use App\Http\Responses\ApiResponse;
 use Illuminate\Http\Request;
@@ -36,14 +37,12 @@ Route::post('/organiser/verify-email', [AuthController::class, 'verifyOrganiserE
 Route::post('/account-webhooks', StripeAccountWebhook::class)
     ->name('stripe.account-webhooks');
 
+Route::post('/stripe/payment-webhooks', StripePaymentWebhook::class)
+    ->name('stripe.payment-webhooks');
+
 // ################## Public Venue Option Lists ##################
 Route::prefix('venue')->group(function () {
     Route::get('/types', [VenueController::class, 'getVenueTypeList']);
-});
-
-// ################## Public Event Option Lists ##################
-Route::prefix('event')->group(function () {
-    Route::get('/categories', [EventController::class, 'getEventCategoryList']);
 });
 
 // ################## Public Customer Catalog (no auth) ##################
@@ -71,6 +70,8 @@ Route::middleware('jwt')->group(function () {
     Route::get('/profile/details', [ProfileController::class, 'details'])
         ->name('profile.details');
 
+    Route::get('/event/categories', [EventController::class, 'getEventCategoryList']);
+
     Route::prefix('media')->group(function () {
         Route::post('/upload', [MediaController::class, 'upload'])->name('media.upload');
         Route::delete('/', [MediaController::class, 'delete'])->name('media.delete');
@@ -86,24 +87,30 @@ Route::middleware('jwt')->group(function () {
     // ################## Approved Organisation Routes ##################
     Route::prefix('organisation')->middleware('organisation.approved')->group(function () {
         // ###### Venue Routes ######
+        Route::get('/venue/page-overview', [VenueController::class, 'pageOverview'])->middleware('organisation.permission:venues.read');
         Route::get('/venue/list', [VenueController::class, 'list'])->middleware('organisation.permission:venues.read');
+        Route::get('/venue/venue-list-for-events', [VenueController::class, 'listForEvents'])->middleware('organisation.permission:venues.read');
         Route::get('/venue/details/{venue_id}', [VenueController::class, 'details'])->middleware('organisation.permission:venues.read');
         Route::get('/venue/facilities', [VenueController::class, 'getFacilitiesListForVenue'])->middleware('organisation.permission:venues.read');
         Route::get('/venue/suitable-for-options', [VenueController::class, 'getVenueSuitableForOptions'])->middleware('organisation.permission:venues.read');
         Route::post('/venue/create', [VenueController::class, 'create'])->middleware('organisation.permission:venues.create');
+        Route::post('/venue/duplicate/{venue_id}', [VenueController::class, 'duplicate'])->middleware('organisation.permission:venues.create');
         Route::post('/venue/create-custom-facilities', [VenueController::class, 'createCustomFacilities'])->middleware('organisation.permission:venues.create');
         Route::delete('/venue/delete-facility/{facility_id}', [VenueController::class, 'deleteCustomFacility'])->middleware('organisation.permission:venues.update');
         Route::post('/venue/create-custom-suitable-for-option', [VenueController::class, 'createCustomSuitableForOption'])->middleware('organisation.permission:venues.create');
         Route::delete('/venue/delete-suitable-for-option/{option_id}', [VenueController::class, 'deleteCustomSuitableForOption'])->middleware('organisation.permission:venues.update');
         Route::post('/venue/update/{venue_id}', [VenueController::class, 'update'])->middleware('organisation.permission:venues.update');
+        Route::post('/venue/manage-status', [VenueController::class, 'manageStatus'])->middleware('organisation.permission:venues.update');
         Route::delete('/venue/delete/{venue_id}', [VenueController::class, 'delete'])->middleware('organisation.permission:venues.delete');
 
         // ###### Event Routes ######
         Route::get('/event/list', [EventController::class, 'list'])->middleware('organisation.permission:events.read');
+        Route::get('/event/details/{event_id}', [EventController::class, 'details'])->middleware('organisation.permission:events.read');
         Route::post('/event/create', [EventController::class, 'create'])->middleware('organisation.permission:events.create');
         Route::post('/event/update/{event_id}', [EventController::class, 'update'])->middleware('organisation.permission:events.update');
         Route::delete('/event/delete/{event_id}', [EventController::class, 'delete'])->middleware('organisation.permission:events.delete');
         Route::post('/event/manage-status/{event_id}', [EventController::class, 'manageStatus'])->middleware('organisation.permission:events.update');
+        Route::post('/event/create-custom-category', [EventController::class, 'createCustomCategory'])->middleware('organisation.permission:events.create');
 
         // ##### Event Ticket Routes ######
         Route::post('/event/ticket/create', [EventController::class, 'createTicket'])->middleware('organisation.permission:events.update');
@@ -128,9 +135,9 @@ Route::middleware('jwt')->group(function () {
         Route::prefix('role-permission')->group(function () {
             Route::get('/permissions-list', [RolePermissionController::class, 'getAllOrganisationPermissions']);
             Route::get('/get-role-list', [RolePermissionController::class, 'getRoleList']);
-            Route::get('/get-role-with-permissions/{role_slug}', [RolePermissionController::class, 'getRoleWithPermissions']);
             Route::post('/create-role', [RolePermissionController::class, 'createRoleWithPermission']);
-            Route::post('/update/{role_slug}', [RolePermissionController::class, 'updateRoleWithPermission']);
+            Route::get('/get-role-with-permissions/{role_id}', [RolePermissionController::class, 'getRoleWithPermissions']);
+            Route::post('/update/{role_id}', [RolePermissionController::class, 'updateRoleWithPermission']);
         });
 
         // ########### Staff Member Routes ###########

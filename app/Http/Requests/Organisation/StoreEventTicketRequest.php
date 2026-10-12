@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Organisation;
 
+use App\Enum\EventTicketStatusEnum;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreEventTicketRequest extends FormRequest
 {
@@ -26,6 +28,7 @@ class StoreEventTicketRequest extends FormRequest
             'quantity_cap' => ['required', 'integer', 'min:1'],
             'badge_label' => ['nullable', 'string'],
             'entitlement' => ['nullable', 'string'],
+            'status' => ['nullable', 'string', Rule::in(EventTicketStatusEnum::values())],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ];
     }
@@ -40,6 +43,7 @@ class StoreEventTicketRequest extends FormRequest
             'name' => 'ticket name',
             'base_price' => 'base price',
             'quantity_cap' => 'quantity',
+            'status' => 'ticket status',
         ];
     }
 }

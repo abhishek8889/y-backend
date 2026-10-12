@@ -241,12 +241,73 @@ class StripeService extends Service
     /**
      * Create a PaymentIntent on the platform account for a ticket purchase.
      *
-     * @param  array<string, mixed>  $payload
-     * @return array<string, mixed>
+     * @param  array{
+     *     amount: float|int|string,
+     *     currency: string,
+     *     idempotency_key: string,
+     *     metadata?: array<string, string>,
+     *     receipt_email?: string|null,
+     *     description?: string|null
+     * }  $payload
+     * @return array{
+     *     id: string,
+     *     client_secret: string|null,
+     *     status: string,
+     *     amount: int,
+     *     currency: string
+     * }
      */
     public function createPaymentIntent(Organisation $organisation, array $payload): array
     {
-        $this->notImplemented(__FUNCTION__);
+        $currency = strtolower(trim((string) $payload['currency']));
+        $amount = $this->toMinorUnits((string) $payload['amount'], $currency);
+
+        if ($amount < 1) {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.stripe_payment_intent_invalid_amount'),
+            );
+        }
+
+        $params = [
+            'amount' => $amount,
+            'currency' => $currency,
+            'automatic_payment_methods' => [
+                'enabled' => true,
+            ],
+            'metadata' => array_merge([
+                'organisation_id' => (string) $organisation->id,
+                'organisation_unique_id' => (string) $organisation->unique_id,
+            ], $payload['metadata'] ?? []),
+        ];
+
+        if (filled($payload['receipt_email'] ?? null)) {
+            $params['receipt_email'] = (string) $payload['receipt_email'];
+        }
+
+        if (filled($payload['description'] ?? null)) {
+            $params['description'] = (string) $payload['description'];
+        }
+
+        try {
+            $intent = $this->stripe()->paymentIntents->create($params, [
+                'idempotency_key' => (string) $payload['idempotency_key'],
+            ]);
+        } catch (ApiErrorException $exception) {
+            $this->fail(
+                Response::HTTP_BAD_GATEWAY,
+                __('messages.stripe_api_error'),
+                $exception->getMessage(),
+            );
+        }
+
+        return [
+            'id' => (string) $intent->id,
+            'client_secret' => $intent->client_secret !== null ? (string) $intent->client_secret : null,
+            'status' => (string) $intent->status,
+            'amount' => (int) $intent->amount,
+            'currency' => (string) $intent->currency,
+        ];
     }
 
     /**
@@ -339,6 +400,25 @@ class StripeService extends Service
         }
 
         return $country;
+    }
+
+    /**
+     * Convert a major-unit amount to Stripe minor units for the currency.
+     */
+    private function toMinorUnits(string $amount, string $currency): int
+    {
+        $zeroDecimalCurrencies = [
+            'bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga',
+            'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf',
+        ];
+
+        $value = (float) $amount;
+
+        if (in_array(strtolower($currency), $zeroDecimalCurrencies, true)) {
+            return (int) round($value);
+        }
+
+        return (int) round($value * 100);
     }
 
     private function notImplemented(string $method): never

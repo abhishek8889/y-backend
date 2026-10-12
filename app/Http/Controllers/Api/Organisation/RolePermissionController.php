@@ -68,17 +68,17 @@ class RolePermissionController extends Controller
     }
 
     /**
-     * Get a role with its assigned permissions by slug.
+     * Get a role with its assigned permissions by id.
      */
     public function getRoleWithPermissions(
         Request $request,
         RolePermissionService $rolePermission,
-        string $role_slug,
+        int $role_id,
     ): JsonResponse {
         try {
             $response = $rolePermission->getRoleWithPermissions(
                 $request->user(),
-                $role_slug,
+                $role_id,
             );
 
             return $this->success(
@@ -113,17 +113,17 @@ class RolePermissionController extends Controller
     }
 
     /**
-     * Update an organisation role and its permissions by slug.
+     * Update an organisation role and its permissions by id.
      */
     public function updateRoleWithPermission(
         UpdateOrganisationRoleRequest $request,
         RolePermissionService $rolePermission,
-        string $role_slug,
+        int $role_id,
     ): JsonResponse {
         try {
             $response = $rolePermission->updateRoleWithPermission(
                 $request->user(),
-                $role_slug,
+                $role_id,
                 $request->validated(),
             );
 

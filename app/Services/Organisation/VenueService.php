@@ -2,6 +2,7 @@
 
 namespace App\Services\Organisation;
 
+use App\Enum\StatusEnum;
 use App\Exceptions\ServiceException;
 use App\Http\Responses\CursorPaginatedResponse;
 use App\Models\Facility;
@@ -166,6 +167,56 @@ class VenueService extends Service
     }
 
     /**
+     * Active venues for event forms (id, name, maximum_capacity).
+     *
+     * @return array{venues: list<array{id: int, name: string, maximum_capacity: int|null}>}
+     */
+    public function listForEvents(User $user): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+
+        $venues = Venue::query()
+            ->where('organisation_id', $organisation->id)
+            ->where('status', StatusEnum::ACTIVE->value)
+            ->orderBy('name')
+            ->get(['id', 'name', 'maximum_capacity'])
+            ->map(fn (Venue $venue): array => [
+                'id' => $venue->id,
+                'name' => $venue->name,
+                'maximum_capacity' => $venue->maximum_capacity,
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'venues' => $venues,
+        ];
+    }
+
+    /**
+     * Venue page overview counts for the authenticated organiser's organisation.
+     *
+     * @return array{total_venue: int, active_venue: int, inactive_venue: int}
+     */
+    public function pageOverview(User $user): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+
+        $counts = Venue::query()
+            ->where('organisation_id', $organisation->id)
+            ->selectRaw('COUNT(*) as total_venue')
+            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as active_venue', [StatusEnum::ACTIVE->value])
+            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as inactive_venue', [StatusEnum::INACTIVE->value])
+            ->first();
+
+        return [
+            'total_venue' => (int) ($counts->total_venue ?? 0),
+            'active_venue' => (int) ($counts->active_venue ?? 0),
+            'inactive_venue' => (int) ($counts->inactive_venue ?? 0),
+        ];
+    }
+
+    /**
      * Get venue details for the authenticated organiser's organisation.
      *
      * @return array{venue: Venue}
@@ -274,6 +325,190 @@ class VenueService extends Service
                 if ($images !== null) {
                     $this->syncImages($user, $venue, $images);
                 }
+            });
+        } catch (Throwable $exception) {
+            if ($exception instanceof ServiceException) {
+                throw $exception;
+            }
+
+            report($exception);
+
+            $this->fail(
+                Response::HTTP_INTERNAL_SERVER_ERROR,
+                __('exceptions.server_error'),
+            );
+        }
+
+        return [
+            'venue' => $venue->fresh([
+                'venueType',
+                'address',
+                'contacts',
+                'accessibility',
+                'logistics',
+                'facilities',
+                'suitableForOptions',
+                'images',
+            ]),
+        ];
+    }
+
+    /**
+     * Manage venue status (active / inactive) for the authenticated organiser's organisation.
+     *
+     * @return array{venue: Venue}
+     */
+    public function manageStatus(User $user, int $venueId, string $status): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+        $venue = $this->resolveOrganisationVenue($organisation->id, $venueId);
+
+        if (! in_array($status, [StatusEnum::ACTIVE->value, StatusEnum::INACTIVE->value], true)) {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.venue_invalid_status'),
+            );
+        }
+
+        if ($venue->status === $status) {
+            return [
+                'venue' => $venue->fresh([
+                    'venueType',
+                    'address',
+                    'contacts',
+                    'accessibility',
+                    'logistics',
+                    'facilities',
+                    'suitableForOptions',
+                    'images',
+                ]),
+            ];
+        }
+
+        $venue->update([
+            'status' => $status,
+            'updated_by' => $user->id,
+        ]);
+
+        return [
+            'venue' => $venue->fresh([
+                'venueType',
+                'address',
+                'contacts',
+                'accessibility',
+                'logistics',
+                'facilities',
+                'suitableForOptions',
+                'images',
+            ]),
+        ];
+    }
+
+    /**
+     * Duplicate a venue belonging to the authenticated organiser's organisation.
+     *
+     * @return array{venue: Venue}
+     */
+    public function duplicate(User $user, int $venueId): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+        $source = $this->resolveOrganisationVenue($organisation->id, $venueId);
+
+        $source->load([
+            'address',
+            'contacts',
+            'accessibility',
+            'logistics',
+            'facilities',
+            'suitableForOptions',
+            'images',
+        ]);
+
+        try {
+            /** @var Venue $venue */
+            $venue = DB::transaction(function () use ($user, $organisation, $source): Venue {
+                $venue = Venue::query()->create([
+                    'organisation_id' => $organisation->id,
+                    'unique_id' => UniqueIdGenerator::generate('VEN'),
+                    'name' => $source->name,
+                    'venue_type_id' => $source->venue_type_id,
+                    'description' => $source->description,
+                    'maximum_capacity' => $source->maximum_capacity,
+                    'standing_capacity' => $source->standing_capacity,
+                    'seated_capacity' => $source->seated_capacity,
+                    'status' => $source->status,
+                    'is_private_hire_available' => $source->is_private_hire_available,
+                    'private_hire_description' => $source->private_hire_description,
+                    'created_by' => $user->id,
+                    'updated_by' => $user->id,
+                ]);
+
+                if ($source->address !== null) {
+                    $venue->address()->create([
+                        'address_line_1' => $source->address->address_line_1,
+                        'address_line_2' => $source->address->address_line_2,
+                        'city' => $source->address->city,
+                        'state' => $source->address->state,
+                        'postal_code' => $source->address->postal_code,
+                        'country' => $source->address->country,
+                        'latitude' => $source->address->latitude,
+                        'longitude' => $source->address->longitude,
+                        'google_maps_url' => $source->address->google_maps_url,
+                    ]);
+                }
+
+                foreach ($source->contacts as $contact) {
+                    $venue->contacts()->create([
+                        'type' => $contact->type,
+                        'name' => $contact->name,
+                        'email' => $contact->email,
+                        'phone' => $contact->phone,
+                        'alternative_phone' => $contact->alternative_phone,
+                        'website' => $contact->website,
+                        'facebook_url' => $contact->facebook_url,
+                        'instagram_url' => $contact->instagram_url,
+                        'twitter_url' => $contact->twitter_url,
+                        'youtube_url' => $contact->youtube_url,
+                    ]);
+                }
+
+                if ($source->accessibility !== null) {
+                    $venue->accessibility()->create([
+                        'accessible_entrance' => $source->accessibility->accessible_entrance,
+                        'accessible_toilet' => $source->accessibility->accessible_toilet,
+                        'wheelchair_access' => $source->accessibility->wheelchair_access,
+                        'notes' => $source->accessibility->notes,
+                    ]);
+                }
+
+                if ($source->logistics !== null) {
+                    $venue->logistics()->create([
+                        'parking_information' => $source->logistics->parking_information,
+                        'public_transport_information' => $source->logistics->public_transport_information,
+                        'travel_information' => $source->logistics->travel_information,
+                    ]);
+                }
+
+                $facilityIds = $source->facilities->pluck('id')->all();
+                if ($facilityIds !== []) {
+                    $venue->facilities()->sync($facilityIds);
+                }
+
+                $suitableForOptionIds = $source->suitableForOptions->pluck('id')->all();
+                if ($suitableForOptionIds !== []) {
+                    $venue->suitableForOptions()->sync($suitableForOptionIds);
+                }
+
+                foreach ($source->images as $image) {
+                    $venue->images()->create([
+                        'type' => $image->type,
+                        'path' => $image->path,
+                        'alt_text' => $image->alt_text,
+                        'sort_order' => $image->sort_order,
+                    ]);
+                }
+
+                return $venue;
             });
         } catch (Throwable $exception) {
             if ($exception instanceof ServiceException) {

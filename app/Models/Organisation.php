@@ -115,4 +115,28 @@ class Organisation extends Model
     {
         return $this->hasOne(OrganisationStripeAccount::class);
     }
+
+    /**
+     * @return HasMany<Coupon, $this>
+     */
+    public function coupons(): HasMany
+    {
+        return $this->hasMany(Coupon::class);
+    }
+
+    /**
+     * @return HasMany<OrganiserAccount, $this>
+     */
+    public function organiserAccounts(): HasMany
+    {
+        return $this->hasMany(OrganiserAccount::class);
+    }
+
+    /**
+     * @return HasMany<OrganiserLedgerEntry, $this>
+     */
+    public function ledgerEntries(): HasMany
+    {
+        return $this->hasMany(OrganiserLedgerEntry::class);
+    }
 }

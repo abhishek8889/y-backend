@@ -66,6 +66,48 @@ test('approved organisations can create a role with selected permissions', funct
     ]);
 });
 
+test('approved organisations can create a role using permissions alias', function () {
+    $user = User::factory()->create();
+    $organisation = Organisation::factory()->create([
+        'owner_id' => $user->id,
+        'approve_status' => true,
+    ]);
+    OrganiserStaff::factory()->for($organisation)->for($user)->create();
+
+    $viewEvents = Permission::factory()->named(PermissionEnum::EventsRead)->create();
+    $createEvents = Permission::factory()->named(PermissionEnum::EventsCreate)->create();
+
+    $token = $this->postJson('/api/organisation/login', [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->json('data.access_token');
+
+    $this->withToken($token)
+        ->postJson('/api/organisation/role-permission/create-role', [
+            'name' => 'Ops Manager',
+            'description' => 'Ops role',
+            'permissions' => [$viewEvents->id, $createEvents->id],
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.name', 'Ops Manager');
+
+    $role = Role::query()
+        ->where('organisation_id', $organisation->id)
+        ->where('name', 'Ops Manager')
+        ->first();
+
+    expect($role)->not->toBeNull();
+
+    $this->assertDatabaseHas('role_permissions', [
+        'role_id' => $role->id,
+        'permission_id' => $viewEvents->id,
+    ]);
+    $this->assertDatabaseHas('role_permissions', [
+        'role_id' => $role->id,
+        'permission_id' => $createEvents->id,
+    ]);
+});
+
 test('create role rejects reserved owner name', function () {
     $user = User::factory()->create();
     $organisation = Organisation::factory()->create([

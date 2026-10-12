@@ -19,7 +19,7 @@ class CustomerAuthService extends Service
 {
     private const int OTP_EXPIRES_IN_MINUTES = 10;
 
-    private const string CUSTOMER_ROLE = 'Customer';
+    private const string CUSTOMER_ROLE = 'customer';
 
     public function __construct(
         private JwtTokenService $jwt,

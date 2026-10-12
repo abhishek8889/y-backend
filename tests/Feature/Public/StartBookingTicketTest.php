@@ -3,15 +3,21 @@
 use App\Enum\EventStatusEnum;
 use App\Enum\EventTicketOfferStatusEnum;
 use App\Enum\EventTicketStatusEnum;
+use App\Enum\OrderStatusEnum;
+use App\Enum\PaymentStatusEnum;
 use App\Enum\PermissionScopeEnum;
 use App\Models\Event;
 use App\Models\EventTicket;
 use App\Models\EventTicketOffer;
+use App\Models\Order;
 use App\Models\Organisation;
+use App\Models\Payment;
 use App\Models\User;
 use App\Services\JwtTokenService;
+use App\Services\StripeService;
 use App\Support\UniqueIdGenerator;
 use Illuminate\Support\Carbon;
+use Mockery\MockInterface;
 
 function customerToken(User $user): string
 {
@@ -23,7 +29,7 @@ function customerToken(User $user): string
 }
 
 /**
- * @return array{user: User, offer: EventTicketOffer}
+ * @return array{user: User, offer: EventTicketOffer, organisation: Organisation}
  */
 function publishedBookableOffer(array $offerOverrides = []): array
 {
@@ -74,7 +80,23 @@ function publishedBookableOffer(array $offerOverrides = []): array
     return [
         'user' => $user,
         'offer' => $offer,
+        'organisation' => $organisation,
     ];
+}
+
+function mockStripePaymentIntent(): void
+{
+    test()->mock(StripeService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('createPaymentIntent')
+            ->once()
+            ->andReturn([
+                'id' => 'pi_test_123',
+                'client_secret' => 'pi_test_123_secret_abc',
+                'status' => 'requires_payment_method',
+                'amount' => 4000,
+                'currency' => 'gbp',
+            ]);
+    });
 }
 
 test('start booking requires authentication', function () {
@@ -87,9 +109,14 @@ test('start booking requires authentication', function () {
 
 test('authenticated user can start booking with a valid offer', function () {
     Carbon::setTestNow(Carbon::parse('2026-10-06 12:00:00'));
+    mockStripePaymentIntent();
 
     ['offer' => $offer] = publishedBookableOffer();
-    $customer = User::factory()->create();
+    $customer = User::factory()->create([
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane@example.com',
+    ]);
 
     test()->withToken(customerToken($customer))
         ->postJson('/api/public/start-booking-ticket', [
@@ -100,8 +127,23 @@ test('authenticated user can start booking with a valid offer', function () {
         ->assertOk()
         ->assertJsonPath('success', true)
         ->assertJsonPath('message', __('messages.public_booking_started'))
-        ->assertJsonPath('data.offers.0.offer_id', $offer->id)
-        ->assertJsonPath('data.offers.0.qty', 2);
+        ->assertJsonPath('data.order.status', OrderStatusEnum::PENDING->value)
+        ->assertJsonPath('data.order.total_amount', '40.00')
+        ->assertJsonPath('data.order.currency', 'GBP')
+        ->assertJsonPath('data.order.items.0.quantity', 2)
+        ->assertJsonPath('data.payment.payment_intent_id', 'pi_test_123')
+        ->assertJsonPath('data.payment.client_secret', 'pi_test_123_secret_abc')
+        ->assertJsonPath('data.payment.status', PaymentStatusEnum::PROCESSING->value);
+
+    $order = Order::query()->first();
+    expect($order)->not->toBeNull()
+        ->and($order->user_id)->toBe($customer->id)
+        ->and($order->items)->toHaveCount(1);
+
+    $payment = Payment::query()->first();
+    expect($payment)->not->toBeNull()
+        ->and($payment->payment_intent_id)->toBe('pi_test_123')
+        ->and($payment->status)->toBe(PaymentStatusEnum::PROCESSING);
 });
 
 test('start booking rejects offers outside the sale window', function () {
@@ -158,4 +200,34 @@ test('start booking rejects draft offers', function () {
         ])
         ->assertUnprocessable()
         ->assertJsonPath('message', __('messages.public_booking_offer_unavailable'));
+});
+
+test('start booking rejects when remaining inventory is insufficient', function () {
+    Carbon::setTestNow(Carbon::parse('2026-10-06 12:00:00'));
+    mockStripePaymentIntent();
+
+    ['offer' => $offer] = publishedBookableOffer([
+        'quantity_cap' => 2,
+        'max_per_order' => 5,
+    ]);
+    $customer = User::factory()->create();
+
+    test()->withToken(customerToken($customer))
+        ->postJson('/api/public/start-booking-ticket', [
+            'offers' => [
+                ['offer_id' => $offer->id, 'qty' => 2],
+            ],
+        ])
+        ->assertOk();
+
+    $otherCustomer = User::factory()->create();
+
+    test()->withToken(customerToken($otherCustomer))
+        ->postJson('/api/public/start-booking-ticket', [
+            'offers' => [
+                ['offer_id' => $offer->id, 'qty' => 1],
+            ],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonPath('message', __('messages.public_booking_offer_quantity_exceeded'));
 });

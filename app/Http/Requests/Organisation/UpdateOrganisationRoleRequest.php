@@ -12,6 +12,15 @@ class UpdateOrganisationRoleRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('permissions') && ! $this->has('permission_ids')) {
+            $this->merge([
+                'permission_ids' => $this->input('permissions'),
+            ]);
+        }
+    }
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -22,6 +31,8 @@ class UpdateOrganisationRoleRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:1000'],
             'permission_ids' => ['nullable', 'array'],
             'permission_ids.*' => ['integer', 'distinct', 'exists:permissions,id'],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['integer', 'distinct', 'exists:permissions,id'],
         ];
     }
 
@@ -40,6 +51,10 @@ class UpdateOrganisationRoleRequest extends FormRequest
             'permission_ids.*.integer' => __('validation.integer'),
             'permission_ids.*.distinct' => __('validation.distinct'),
             'permission_ids.*.exists' => __('validation.exists'),
+            'permissions.array' => __('validation.array'),
+            'permissions.*.integer' => __('validation.integer'),
+            'permissions.*.distinct' => __('validation.distinct'),
+            'permissions.*.exists' => __('validation.exists'),
         ];
     }
 
@@ -53,6 +68,8 @@ class UpdateOrganisationRoleRequest extends FormRequest
             'description' => 'role description',
             'permission_ids' => 'permissions',
             'permission_ids.*' => 'permission',
+            'permissions' => 'permissions',
+            'permissions.*' => 'permission',
         ];
     }
 }

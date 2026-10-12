@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organisation;
 
+use App\Enum\EventTicketOfferStatusEnum;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,6 +30,7 @@ class StoreEventTicketOfferRequest extends FormRequest
             'sale_ends_at' => ['nullable', 'date', 'after:sale_starts_at', 'after_or_equal:'.$nowUtc],
             'max_per_order' => ['nullable', 'integer', 'min:1'],
             'access' => ['nullable', 'string', Rule::in(['public', 'private', 'invite_only'])],
+            'status' => ['nullable', 'string', Rule::in(EventTicketOfferStatusEnum::values())],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ];
     }
@@ -45,6 +47,7 @@ class StoreEventTicketOfferRequest extends FormRequest
             'quantity_cap' => 'offer quantity',
             'sale_starts_at' => 'sale start',
             'sale_ends_at' => 'sale end',
+            'status' => 'offer status',
         ];
     }
 
