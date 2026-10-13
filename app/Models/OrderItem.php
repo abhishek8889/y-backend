@@ -116,6 +116,14 @@ class OrderItem extends Model
     }
 
     /**
+     * @return HasMany<IssuedTicket, $this>
+     */
+    public function issuedTickets(): HasMany
+    {
+        return $this->hasMany(IssuedTicket::class);
+    }
+
+    /**
      * Order items that consume offer inventory: paid/partially refunded sales,
      * plus non-expired pending checkout holds.
      */

@@ -244,6 +244,9 @@
                         <tr>
                             <td align="center" style="padding: 0 40px 28px;">
                                 <p class="copy">{{ __('messages.order_confirmation_mail_thanks', ['name' => $customer_name]) }}</p>
+                                <p class="muted" style="text-align: center; margin-top: 12px;">
+                                    {{ __('messages.order_confirmation_mail_pdf_note') }}
+                                </p>
                             </td>
                         </tr>
 

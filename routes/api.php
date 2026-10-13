@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\Public\AuthController as PublicAuthController;
 use App\Http\Controllers\Api\Public\BookingController as PublicBookingController;
 use App\Http\Controllers\Api\Public\EventController as PublicEventController;
+use App\Http\Controllers\Api\Public\OrderController as PublicOrderController;
 use App\Http\Controllers\Api\Public\WishlistController as PublicWishlistController;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripeAccountWebhook;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripePaymentWebhook;
@@ -81,6 +82,7 @@ Route::middleware('jwt')->group(function () {
     // ########### Public Auth Routes ##################
     Route::prefix('public')->group(function () {
         Route::post('/start-booking-ticket', [PublicBookingController::class, 'startBookingTicket']);
+        Route::get('/my-orders-list', [PublicOrderController::class, 'myOrdersList']);
         Route::get('/get-wishlist', [PublicWishlistController::class, 'list']);
         Route::post('/move-to-wishlist', [PublicWishlistController::class, 'store']);
         Route::post('/remove-from-wishlist', [PublicWishlistController::class, 'remove']);
@@ -91,42 +93,51 @@ Route::middleware('jwt')->group(function () {
     // ################## Approved Organisation Routes ##################
     Route::prefix('organisation')->middleware('organisation.approved')->group(function () {
         // ###### Venue Routes ######
-        Route::get('/venue/page-overview', [VenueController::class, 'pageOverview'])->middleware('organisation.permission:venues.read');
-        Route::get('/venue/list', [VenueController::class, 'list'])->middleware('organisation.permission:venues.read');
-        Route::get('/venue/venue-list-for-events', [VenueController::class, 'listForEvents'])->middleware('organisation.permission:venues.read');
-        Route::get('/venue/details/{venue_id}', [VenueController::class, 'details'])->middleware('organisation.permission:venues.read');
-        Route::get('/venue/facilities', [VenueController::class, 'getFacilitiesListForVenue'])->middleware('organisation.permission:venues.read');
-        Route::get('/venue/suitable-for-options', [VenueController::class, 'getVenueSuitableForOptions'])->middleware('organisation.permission:venues.read');
-        Route::post('/venue/create', [VenueController::class, 'create'])->middleware('organisation.permission:venues.create');
-        Route::post('/venue/duplicate/{venue_id}', [VenueController::class, 'duplicate'])->middleware('organisation.permission:venues.create');
-        Route::post('/venue/create-custom-facilities', [VenueController::class, 'createCustomFacilities'])->middleware('organisation.permission:venues.create');
-        Route::delete('/venue/delete-facility/{facility_id}', [VenueController::class, 'deleteCustomFacility'])->middleware('organisation.permission:venues.update');
-        Route::post('/venue/create-custom-suitable-for-option', [VenueController::class, 'createCustomSuitableForOption'])->middleware('organisation.permission:venues.create');
-        Route::delete('/venue/delete-suitable-for-option/{option_id}', [VenueController::class, 'deleteCustomSuitableForOption'])->middleware('organisation.permission:venues.update');
-        Route::post('/venue/update/{venue_id}', [VenueController::class, 'update'])->middleware('organisation.permission:venues.update');
-        Route::post('/venue/manage-status', [VenueController::class, 'manageStatus'])->middleware('organisation.permission:venues.update');
-        Route::delete('/venue/delete/{venue_id}', [VenueController::class, 'delete'])->middleware('organisation.permission:venues.delete');
+        Route::prefix('venue')->group(function () {
+            Route::get('/page-overview', [VenueController::class, 'pageOverview'])->middleware('organisation.permission:venues.read');
+            Route::get('/list', [VenueController::class, 'list'])->middleware('organisation.permission:venues.read');
+            Route::get('/venue-list-for-events', [VenueController::class, 'listForEvents'])->middleware('organisation.permission:venues.read');
+            Route::get('/details/{venue_id}', [VenueController::class, 'details'])->middleware('organisation.permission:venues.read');
+            Route::get('/facilities', [VenueController::class, 'getFacilitiesListForVenue'])->middleware('organisation.permission:venues.read');
+            Route::get('/suitable-for-options', [VenueController::class, 'getVenueSuitableForOptions'])->middleware('organisation.permission:venues.read');
+            Route::post('/create', [VenueController::class, 'create'])->middleware('organisation.permission:venues.create');
+            Route::post('/duplicate/{venue_id}', [VenueController::class, 'duplicate'])->middleware('organisation.permission:venues.create');
+            Route::post('/create-custom-facilities', [VenueController::class, 'createCustomFacilities'])->middleware('organisation.permission:venues.create');
+            Route::delete('/delete-facility/{facility_id}', [VenueController::class, 'deleteCustomFacility'])->middleware('organisation.permission:venues.update');
+            Route::post('/create-custom-suitable-for-option', [VenueController::class, 'createCustomSuitableForOption'])->middleware('organisation.permission:venues.create');
+            Route::delete('/delete-suitable-for-option/{option_id}', [VenueController::class, 'deleteCustomSuitableForOption'])->middleware('organisation.permission:venues.update');
+            Route::post('/update/{venue_id}', [VenueController::class, 'update'])->middleware('organisation.permission:venues.update');
+            Route::post('/manage-status', [VenueController::class, 'manageStatus'])->middleware('organisation.permission:venues.update');
+            Route::delete('/delete/{venue_id}', [VenueController::class, 'delete'])->middleware('organisation.permission:venues.delete');
+        });
 
         // ###### Event Routes ######
-        Route::get('/event/list', [EventController::class, 'list'])->middleware('organisation.permission:events.read');
-        Route::get('/event/details/{event_id}', [EventController::class, 'details'])->middleware('organisation.permission:events.read');
-        Route::post('/event/create', [EventController::class, 'create'])->middleware('organisation.permission:events.create');
-        Route::post('/event/update/{event_id}', [EventController::class, 'update'])->middleware('organisation.permission:events.update');
-        Route::delete('/event/delete/{event_id}', [EventController::class, 'delete'])->middleware('organisation.permission:events.delete');
-        Route::post('/event/manage-status/{event_id}', [EventController::class, 'manageStatus'])->middleware('organisation.permission:events.update');
-        Route::post('/event/create-custom-category', [EventController::class, 'createCustomCategory'])->middleware('organisation.permission:events.create');
+        Route::prefix('event')->group(function () {
+            Route::get('/list', [EventController::class, 'list'])->middleware('organisation.permission:events.read');
+            Route::get('/details/{event_id}', [EventController::class, 'details'])->middleware('organisation.permission:events.read');
+            Route::post('/create', [EventController::class, 'create'])->middleware('organisation.permission:events.create');
+            Route::post('/update/{event_id}', [EventController::class, 'update'])->middleware('organisation.permission:events.update');
+            Route::delete('/delete/{event_id}', [EventController::class, 'delete'])->middleware('organisation.permission:events.delete');
+            Route::post('/manage-status/{event_id}', [EventController::class, 'manageStatus'])->middleware('organisation.permission:events.update');
+            Route::post('/create-custom-category', [EventController::class, 'createCustomCategory'])->middleware('organisation.permission:events.create');
+            Route::get('/orders/{event_id}', [EventController::class, 'listOrders'])->middleware('organisation.permission:events.read');
 
-        // ##### Event Ticket Routes ######
-        Route::post('/event/ticket/create', [EventController::class, 'createTicket'])->middleware('organisation.permission:events.update');
-        Route::get('/event/ticket/list/{event_id}', [EventController::class, 'listTickets'])->middleware('organisation.permission:events.read');
-        Route::post('/event/ticket/update/{ticket_id}', [EventController::class, 'updateTicket'])->middleware('organisation.permission:events.update');
-        Route::delete('/event/ticket/delete/{ticket_id}', [EventController::class, 'deleteTicket'])->middleware('organisation.permission:events.update');
+            // ##### Event Ticket Routes ######
+            Route::prefix('ticket')->group(function () {
+                Route::post('/create', [EventController::class, 'createTicket'])->middleware('organisation.permission:events.update');
+                Route::get('/list/{event_id}', [EventController::class, 'listTickets'])->middleware('organisation.permission:events.read');
+                Route::post('/update/{ticket_id}', [EventController::class, 'updateTicket'])->middleware('organisation.permission:events.update');
+                Route::delete('/delete/{ticket_id}', [EventController::class, 'deleteTicket'])->middleware('organisation.permission:events.update');
 
-        // ##### Event Ticket Offer Routes ######
-        Route::post('/event/ticket/offer/create', [EventController::class, 'createTicketOffer'])->middleware('organisation.permission:events.update');
-        Route::get('/event/ticket/offer/list/{ticket_id}', [EventController::class, 'listTicketOffers'])->middleware('organisation.permission:events.read');
-        Route::post('/event/ticket/offer/update/{offer_id}', [EventController::class, 'updateTicketOffer'])->middleware('organisation.permission:events.update');
-        Route::delete('/event/ticket/offer/delete/{offer_id}', [EventController::class, 'deleteTicketOffer'])->middleware('organisation.permission:events.update');
+                // ##### Event Ticket Offer Routes ######
+                Route::prefix('offer')->group(function () {
+                    Route::post('/create', [EventController::class, 'createTicketOffer'])->middleware('organisation.permission:events.update');
+                    Route::get('/list/{ticket_id}', [EventController::class, 'listTicketOffers'])->middleware('organisation.permission:events.read');
+                    Route::post('/update/{offer_id}', [EventController::class, 'updateTicketOffer'])->middleware('organisation.permission:events.update');
+                    Route::delete('/delete/{offer_id}', [EventController::class, 'deleteTicketOffer'])->middleware('organisation.permission:events.update');
+                });
+            });
+        });
 
         // ###### Organisation Stripe Connect Routes ######
         Route::prefix('stripe')->group(function () {

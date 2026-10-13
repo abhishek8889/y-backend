@@ -30,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $paid_at
  * @property Carbon|null $cancelled_at
  * @property Carbon|null $confirmation_email_sent_at
+ * @property string|null $tickets_pdf_path
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -52,6 +53,7 @@ use Illuminate\Support\Carbon;
     'paid_at',
     'cancelled_at',
     'confirmation_email_sent_at',
+    'tickets_pdf_path',
 ])]
 class Order extends Model
 {
@@ -119,5 +121,13 @@ class Order extends Model
     public function refunds(): HasMany
     {
         return $this->hasMany(Refund::class);
+    }
+
+    /**
+     * @return HasMany<IssuedTicket, $this>
+     */
+    public function issuedTickets(): HasMany
+    {
+        return $this->hasMany(IssuedTicket::class);
     }
 }

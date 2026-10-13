@@ -39,7 +39,7 @@ test('send login otp stores verification without creating a user', function () {
         'last_name' => 'Doe',
     ]);
 
-    Mail::assertSent(AppMail::class);
+    Mail::assertQueued(AppMail::class);
 });
 
 test('send login otp for existing user does not reset the password', function () {

@@ -15,6 +15,7 @@ use App\Http\Resources\EventCategoryResource;
 use App\Http\Resources\EventResource;
 use App\Http\Resources\EventTicketOfferResource;
 use App\Http\Resources\EventTicketResource;
+use App\Http\Resources\MyOrderResource;
 use App\Services\Organisation\EventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -97,6 +98,37 @@ class EventController extends Controller
             return $this->success(
                 __('messages.event_ticket_list'),
                 EventTicketResource::collection($response['tickets']),
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * List orders for an event belonging to the authenticated organiser's organisation.
+     */
+    public function listOrders(Request $request, EventService $event, int $event_id): JsonResponse
+    {
+        try {
+            $filters = [
+                'status' => $request->filled('status')
+                    ? $request->string('status')->toString()
+                    : null,
+                'per_page' => $request->filled('per_page')
+                    ? $request->integer('per_page')
+                    : null,
+                'cursor' => $request->filled('cursor')
+                    ? $request->string('cursor')->toString()
+                    : null,
+            ];
+
+            $response = $event->listOrders($request->user(), $event_id, $filters);
+            $paginator = $response['paginator'];
+
+            return $this->successPaginated(
+                __('messages.event_orders_list'),
+                MyOrderResource::collection($paginator->items()),
+                $paginator,
             );
         } catch (Throwable $exception) {
             return $this->failed($exception);

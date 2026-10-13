@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\WebhookEvent;
+use App\Services\IssuedTicketService;
 use App\Services\OrderConfirmationMailService;
 use App\Services\OrganiserBalanceService;
 use Illuminate\Http\JsonResponse;
@@ -36,6 +37,7 @@ class StripePaymentWebhook extends Controller
 {
     public function __construct(
         private readonly OrganiserBalanceService $organiserBalances,
+        private readonly IssuedTicketService $issuedTickets,
         private readonly OrderConfirmationMailService $orderConfirmations,
     ) {}
 
@@ -161,35 +163,37 @@ class StripePaymentWebhook extends Controller
             $payment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
             $order = Order::query()->whereKey($payment->order_id)->lockForUpdate()->firstOrFail();
 
-            if ($payment->status === PaymentStatusEnum::SUCCEEDED
-                && $order->status === OrderStatusEnum::PAID) {
-                return $order;
-            }
+            if (! ($payment->status === PaymentStatusEnum::SUCCEEDED
+                && $order->status === OrderStatusEnum::PAID)) {
+                $paidAt = Carbon::now();
 
-            $paidAt = Carbon::now();
-
-            $payment->update([
-                'status' => PaymentStatusEnum::SUCCEEDED,
-                'charge_id' => $this->resolveChargeId($paymentIntent),
-                'payment_method' => $this->resolvePaymentMethod($paymentIntent),
-                'failure_reason' => null,
-                'paid_at' => $paidAt,
-            ]);
-
-            if ($order->status !== OrderStatusEnum::PAID) {
-                $order->update([
-                    'status' => OrderStatusEnum::PAID,
+                $payment->update([
+                    'status' => PaymentStatusEnum::SUCCEEDED,
+                    'charge_id' => $this->resolveChargeId($paymentIntent),
+                    'payment_method' => $this->resolvePaymentMethod($paymentIntent),
+                    'failure_reason' => null,
                     'paid_at' => $paidAt,
-                    'cancelled_at' => null,
                 ]);
+
+                if ($order->status !== OrderStatusEnum::PAID) {
+                    $order->update([
+                        'status' => OrderStatusEnum::PAID,
+                        'paid_at' => $paidAt,
+                        'cancelled_at' => null,
+                    ]);
+                }
+
+                $this->organiserBalances->creditReservedEarnings($order);
             }
 
-            $this->organiserBalances->creditReservedEarnings($order);
+            $order = $order->fresh() ?? $order;
+            $this->issuedTickets->issueForPaidOrder($order);
 
-            return $order->fresh() ?? $order;
+            return $order;
         });
 
-        $this->orderConfirmations->sendAfterSuccessfulPayment($order);
+        // PDF generation + email run async after commit (keeps webhook fast).
+        $this->orderConfirmations->queueAfterSuccessfulPayment($order);
 
         return true;
     }

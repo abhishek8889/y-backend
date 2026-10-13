@@ -41,7 +41,7 @@ test('platform users with organisations.manage_approve_status can approve an org
         'approve_status_reason' => null,
     ]);
 
-    Mail::assertSent(AppMail::class, function (AppMail $mail) use ($owner): bool {
+    Mail::assertQueued(AppMail::class, function (AppMail $mail) use ($owner): bool {
         return $mail->hasTo($owner->email)
             && $mail->mailView === 'mail.organisation-approved'
             && $mail->sentBy === MailSenderEnum::PLATFORM;
@@ -76,7 +76,7 @@ test('platform users with organisations.manage_approve_status can reject an orga
         'approve_status_reason' => 'Incomplete organisation profile.',
     ]);
 
-    Mail::assertSent(AppMail::class, function (AppMail $mail) use ($owner): bool {
+    Mail::assertQueued(AppMail::class, function (AppMail $mail) use ($owner): bool {
         return $mail->hasTo($owner->email)
             && $mail->mailView === 'mail.organisation-rejected'
             && $mail->data['reason'] === 'Incomplete organisation profile.'

@@ -5,12 +5,14 @@ namespace App\Services\Organisation;
 use App\Enum\EventStatusEnum;
 use App\Enum\EventTicketOfferStatusEnum;
 use App\Enum\EventTicketStatusEnum;
+use App\Enum\OrderStatusEnum;
 use App\Exceptions\ServiceException;
 use App\Http\Responses\CursorPaginatedResponse;
 use App\Models\Event;
 use App\Models\EventCategory;
 use App\Models\EventTicket;
 use App\Models\EventTicketOffer;
+use App\Models\Order;
 use App\Models\Organisation;
 use App\Models\User;
 use App\Models\Venue;
@@ -435,6 +437,53 @@ class EventService extends Service
         return [
             'event' => $event,
             'tickets' => $tickets,
+        ];
+    }
+
+    /**
+     * Cursor-paginated orders that include items for an event owned by the authenticated organisation.
+     *
+     * @param  array{
+     *     status?: string|null,
+     *     per_page?: int|null,
+     *     cursor?: string|null
+     * }  $filters
+     * @return array{paginator: CursorPaginator, event: Event}
+     */
+    public function listOrders(User $user, int $eventId, array $filters = []): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+        $event = $this->resolveOrganisationEvent($organisation->id, $eventId);
+        $perPage = CursorPaginatedResponse::resolvePerPage($filters['per_page'] ?? null);
+        $status = $filters['status'] ?? null;
+
+        $paginator = Order::query()
+            ->whereHas('items', function ($query) use ($event, $organisation): void {
+                $query->where('event_id', $event->id)
+                    ->where('organisation_id', $organisation->id);
+            })
+            ->when(
+                $status !== null,
+                fn ($query) => $query->where('status', $status),
+                fn ($query) => $query->whereIn('status', [
+                    OrderStatusEnum::PAID,
+                    OrderStatusEnum::PARTIALLY_REFUNDED,
+                    OrderStatusEnum::REFUNDED,
+                ]),
+            )
+            ->with([
+                'items' => function ($query) use ($event, $organisation): void {
+                    $query->where('event_id', $event->id)
+                        ->where('organisation_id', $organisation->id)
+                        ->with('issuedTickets');
+                },
+            ])
+            ->orderByDesc('id')
+            ->cursorPaginate($perPage, ['*'], 'cursor', $filters['cursor'] ?? null);
+
+        return [
+            'event' => $event,
+            'paginator' => $paginator,
         ];
     }
 

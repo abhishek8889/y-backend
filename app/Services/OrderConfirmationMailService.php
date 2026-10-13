@@ -4,12 +4,14 @@ namespace App\Services;
 
 use App\Enum\MailSenderEnum;
 use App\Enum\OrderStatusEnum;
+use App\Jobs\SendOrderConfirmationEmailJob;
 use App\Models\Event;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Organisation;
 use App\Models\Venue;
 use App\Models\VenueAddress;
+use App\Support\MoneyFormatter;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -19,61 +21,95 @@ class OrderConfirmationMailService extends Service
 {
     public function __construct(
         private readonly MailService $mail,
+        private readonly TicketPdfService $ticketPdf,
     ) {}
 
     /**
-     * Send an order confirmation email after a successful payment (idempotent).
+     * Queue confirmation email + tickets PDF after payment (fast webhook path).
      */
-    public function sendAfterSuccessfulPayment(Order $order): void
+    public function queueAfterSuccessfulPayment(Order $order): void
     {
-        $claimedOrder = DB::transaction(function () use ($order): ?Order {
-            /** @var Order|null $lockedOrder */
-            $lockedOrder = Order::query()
-                ->whereKey($order->id)
+        if ($order->status !== OrderStatusEnum::PAID) {
+            return;
+        }
+
+        if ($order->confirmation_email_sent_at !== null) {
+            return;
+        }
+
+        if (! filled($order->customer_email)) {
+            Log::channel('stripe_webhook')->warning('Order confirmation skipped: missing customer email', [
+                'order_id' => $order->id,
+                'order_unique_id' => $order->unique_id,
+            ]);
+
+            return;
+        }
+
+        SendOrderConfirmationEmailJob::dispatch($order->id)->afterCommit();
+    }
+
+    /**
+     * Generate tickets PDF and queue the confirmation email (idempotent).
+     * Intended to run inside SendOrderConfirmationEmailJob.
+     */
+    public function deliverForPaidOrder(int $orderId): void
+    {
+        $claimedOrder = DB::transaction(function () use ($orderId): ?Order {
+            /** @var Order|null $order */
+            $order = Order::query()
+                ->whereKey($orderId)
                 ->lockForUpdate()
                 ->first();
 
-            if ($lockedOrder === null) {
-                return null;
-            }
-
-            if ($lockedOrder->status !== OrderStatusEnum::PAID) {
-                return null;
-            }
-
-            if ($lockedOrder->confirmation_email_sent_at !== null) {
-                return null;
-            }
-
-            if (! filled($lockedOrder->customer_email)) {
-                Log::channel('stripe_webhook')->warning('Order confirmation skipped: missing customer email', [
-                    'order_id' => $lockedOrder->id,
-                    'order_unique_id' => $lockedOrder->unique_id,
+            if ($order === null) {
+                Log::channel('stripe_webhook')->warning('Order confirmation skipped: order not found', [
+                    'order_id' => $orderId,
                 ]);
 
                 return null;
             }
 
-            // Claim before send so webhook retries cannot duplicate delivery.
-            $lockedOrder->forceFill([
+            if ($order->status !== OrderStatusEnum::PAID) {
+                return null;
+            }
+
+            if ($order->confirmation_email_sent_at !== null) {
+                return null;
+            }
+
+            if (! filled($order->customer_email)) {
+                Log::channel('stripe_webhook')->warning('Order confirmation skipped: missing customer email', [
+                    'order_id' => $order->id,
+                    'order_unique_id' => $order->unique_id,
+                ]);
+
+                return null;
+            }
+
+            // Claim before work so concurrent jobs / webhook retries cannot duplicate delivery.
+            $order->forceFill([
                 'confirmation_email_sent_at' => now(),
             ])->save();
 
-            return $lockedOrder;
+            return $order;
         });
 
         if ($claimedOrder === null) {
             return;
         }
 
-        $claimedOrder->load([
-            'items.event.venue.address',
-            'items.organisation:id,name',
-        ]);
-
-        $payload = $this->buildMailPayload($claimedOrder);
-
         try {
+            $claimedOrder->load([
+                'items.event.venue.address',
+                'items.organisation:id,name',
+                'issuedTickets.event.venue.address',
+                'issuedTickets.organisation:id,name',
+            ]);
+
+            $pdf = $this->ticketPdf->generateForOrder($claimedOrder);
+            $payload = $this->buildMailPayload($claimedOrder);
+
             $this->mail->send(
                 to: $claimedOrder->customer_email,
                 subject: __('messages.order_confirmation_mail_subject', [
@@ -82,6 +118,13 @@ class OrderConfirmationMailService extends Service
                 view: 'mail.order-confirmation',
                 data: $payload,
                 sentBy: MailSenderEnum::PLATFORM,
+                attachments: [
+                    [
+                        'path' => $pdf['absolute_path'],
+                        'name' => $pdf['filename'],
+                        'mime' => 'application/pdf',
+                    ],
+                ],
             );
         } catch (\Throwable $exception) {
             Order::query()->whereKey($claimedOrder->id)->update([
@@ -125,8 +168,8 @@ class OrderConfirmationMailService extends Service
                 'quantity' => (int) $item->quantity,
                 'unit_price' => $unitPrice,
                 'total_price' => $totalPrice,
-                'formatted_unit_price' => $this->formatMoney($unitPrice, $order->currency),
-                'formatted_total_price' => $this->formatMoney($totalPrice, $order->currency),
+                'formatted_unit_price' => MoneyFormatter::format($unitPrice, $order->currency),
+                'formatted_total_price' => MoneyFormatter::format($totalPrice, $order->currency),
             ];
         })->values()->all();
 
@@ -164,24 +207,11 @@ class OrderConfirmationMailService extends Service
             'order_unique_id' => (string) $order->unique_id,
             'currency' => (string) $order->currency,
             'total_amount' => (string) $order->total_amount,
-            'formatted_total' => $this->formatMoney((string) $order->total_amount, $order->currency),
+            'formatted_total' => MoneyFormatter::format((string) $order->total_amount, $order->currency),
             'primary_event_name' => $primaryEventName,
             'line_items' => $lineItems,
             'events' => $events,
         ];
-    }
-
-    private function formatMoney(string $amount, string $currency): string
-    {
-        $formattedAmount = number_format((float) $amount, 2, '.', ',');
-        $currencyCode = strtoupper($currency);
-
-        return match ($currencyCode) {
-            'GBP' => '£'.$formattedAmount,
-            'USD' => '$'.$formattedAmount,
-            'EUR' => '€'.$formattedAmount,
-            default => $currencyCode.' '.$formattedAmount,
-        };
     }
 
     private function formatEventDateTime(?CarbonInterface $dateTime, string $timezone): ?string

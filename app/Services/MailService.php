@@ -11,10 +11,14 @@ use Throwable;
 class MailService extends Service
 {
     /**
-     * Send an email through the shared app mailer.
+     * Queue an email through the shared app mailer (async via AppMail ShouldQueue).
+     *
+     * Call sites keep the same shape used across Auth and other services:
+     * $this->mail->send(to:, subject:, view:, data:, sentBy:).
      *
      * @param  string|list<string>  $to
      * @param  array<string, mixed>  $data
+     * @param  list<array{path: string, name?: string, mime?: string}>  $attachments
      */
     public function send(
         string|array $to,
@@ -22,15 +26,17 @@ class MailService extends Service
         string $view,
         array $data,
         MailSenderEnum $sentBy,
+        array $attachments = [],
     ): void {
         try {
-            Mail::to($to)->send(new AppMail($subject, $view, $data, $sentBy));
+            Mail::to($to)->send(new AppMail($subject, $view, $data, $sentBy, $attachments));
         } catch (Throwable $exception) {
             report($exception);
 
             $this->fail(
                 Response::HTTP_BAD_GATEWAY,
                 __('auth.mail_failed'),
+                $exception->getMessage(),
             );
         }
     }

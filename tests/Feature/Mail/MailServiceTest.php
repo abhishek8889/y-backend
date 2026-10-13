@@ -7,7 +7,7 @@ use App\Services\MailService;
 use Illuminate\Support\Facades\Mail;
 use Symfony\Component\Mailer\Exception\TransportException;
 
-test('mail service sends through AppMail with the given sender', function () {
+test('mail service queues AppMail with the given sender', function () {
     Mail::fake();
 
     app(MailService::class)->send(
@@ -21,7 +21,7 @@ test('mail service sends through AppMail with the given sender', function () {
         sentBy: MailSenderEnum::PLATFORM,
     );
 
-    Mail::assertSent(AppMail::class, function (AppMail $mail): bool {
+    Mail::assertQueued(AppMail::class, function (AppMail $mail): bool {
         return $mail->hasTo('ada@example.com')
             && $mail->mailSubject === 'Verify your account'
             && $mail->mailView === 'mail.organiser-registration-otp'
@@ -30,14 +30,14 @@ test('mail service sends through AppMail with the given sender', function () {
     });
 });
 
-test('mail service fails with the transport error when send fails', function () {
+test('mail service fails when queue dispatch fails', function () {
     Mail::shouldReceive('to')
         ->once()
         ->andReturnSelf();
 
     Mail::shouldReceive('send')
         ->once()
-        ->andThrow(new TransportException('SMTP authentication failed.'));
+        ->andThrow(new TransportException('Queue connection failed.'));
 
     expect(fn () => app(MailService::class)->send(
         to: 'ada@example.com',

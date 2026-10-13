@@ -26,7 +26,7 @@ test('organiser registration sends an otp email from the platform', function () 
         'org_city' => 'London',
     ]);
 
-    Mail::assertSent(AppMail::class, function (AppMail $mail): bool {
+    Mail::assertQueued(AppMail::class, function (AppMail $mail): bool {
         return $mail->hasTo('ada@example.com')
             && $mail->mailView === 'mail.organiser-registration-otp'
             && $mail->data['otp'] === 'ABCDEF'
@@ -72,7 +72,8 @@ function organiserRegistrationPayload(): array
         'org_organiser_name' => 'Ada Lovelace',
         'org_name' => 'Analytical Engines Ltd',
         'org_email' => 'hello@engines.example',
-        'org_country_code' => '+1',
+        'org_country_calling_code' => '+1',
+        'org_country_code' => 'US',
         'org_phone' => '5559876543',
         'org_country' => 'US',
         'org_city' => 'London',
