@@ -5,6 +5,8 @@ namespace App\Services\Public;
 use App\Enum\EventStatusEnum;
 use App\Enum\EventTicketOfferStatusEnum;
 use App\Enum\EventTicketStatusEnum;
+use App\Enum\OrderItemPricingTypeEnum;
+use App\Enum\OrderSalesChannelEnum;
 use App\Enum\OrderStatusEnum;
 use App\Enum\PaymentProviderEnum;
 use App\Enum\PaymentStatusEnum;
@@ -137,6 +139,7 @@ class BookingService extends Service
                     'ticket_name' => $ticket->name,
                     'offer_name' => $offer->name,
                     'quantity' => $qty,
+                    'pricing_type' => OrderItemPricingTypeEnum::PAID,
                     'unit_price' => number_format($unitPrice, 2, '.', ''),
                     'discount_amount' => '0.00',
                     'total_price' => number_format($lineTotal, 2, '.', ''),
@@ -166,6 +169,7 @@ class BookingService extends Service
                 'coupon_id' => null,
                 'coupon_code' => null,
                 'status' => OrderStatusEnum::PENDING,
+                'sales_channel' => OrderSalesChannelEnum::ONLINE,
                 'subtotal' => number_format($subtotal, 2, '.', ''),
                 'discount_amount' => number_format($discountAmount, 2, '.', ''),
                 'platform_fee_amount' => number_format($platformFeeTotal, 2, '.', ''),
@@ -175,6 +179,7 @@ class BookingService extends Service
                 'customer_email' => $user->email,
                 'customer_phone' => $user->phone,
                 'expires_at' => $expiresAt,
+                'created_by' => $user->id,
             ]);
 
             foreach ($lineItems as $lineItem) {

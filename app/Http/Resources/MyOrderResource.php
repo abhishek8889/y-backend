@@ -21,8 +21,10 @@ class MyOrderResource extends JsonResource
         $currency = (string) $this->currency;
 
         return [
+            'id' => $this->id,
             'unique_id' => $this->unique_id,
             'status' => $this->status?->value ?? $this->status,
+            'sales_channel' => $this->sales_channel?->value ?? $this->sales_channel,
             'currency' => $currency,
             'currency_sign' => CurrencyEnum::signFor($currency),
             'subtotal' => (string) $this->subtotal,

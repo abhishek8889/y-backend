@@ -332,14 +332,89 @@ class StripeService extends Service
     }
 
     /**
-     * Refund a platform charge / PaymentIntent.
+     * Refund a PaymentIntent. Omit $amount (or pass null) for a full refund;
+     * pass a major-unit amount string for a partial refund.
      *
-     * @param  array<string, mixed>  $payload
-     * @return array<string, mixed>
+     * @param  array{
+     *     currency?: string|null,
+     *     reason?: string|null,
+     *     metadata?: array<string, string>|null,
+     *     idempotency_key?: string|null
+     * }  $options
+     * @return array{
+     *     id: string,
+     *     status: string,
+     *     amount: int,
+     *     currency: string,
+     *     payment_intent: string|null
+     * }
      */
-    public function createRefund(string $paymentIntentId, array $payload = []): array
+    public function createRefund(string $paymentIntentId, ?string $amount = null, array $options = []): array
     {
-        $this->notImplemented(__FUNCTION__);
+        $paymentIntentId = trim($paymentIntentId);
+
+        if ($paymentIntentId === '') {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.stripe_refund_missing_payment_intent'),
+            );
+        }
+
+        $params = [
+            'payment_intent' => $paymentIntentId,
+        ];
+
+        if ($amount !== null) {
+            $currency = strtolower(trim((string) ($options['currency'] ?? 'gbp')));
+            $minorAmount = $this->toMinorUnits($amount, $currency);
+
+            if ($minorAmount < 1) {
+                $this->fail(
+                    Response::HTTP_UNPROCESSABLE_ENTITY,
+                    __('messages.stripe_refund_invalid_amount'),
+                );
+            }
+
+            $params['amount'] = $minorAmount;
+        }
+
+        $metadata = $options['metadata'] ?? [];
+
+        if (filled($options['reason'] ?? null)) {
+            $metadata['refund_reason'] = substr(trim((string) $options['reason']), 0, 500);
+        }
+
+        if ($metadata !== []) {
+            $params['metadata'] = $metadata;
+        }
+
+        $requestOptions = [];
+
+        if (filled($options['idempotency_key'] ?? null)) {
+            $requestOptions['idempotency_key'] = (string) $options['idempotency_key'];
+        }
+
+        try {
+            $refund = $this->stripe()->refunds->create($params, $requestOptions);
+        } catch (ApiErrorException $exception) {
+            $this->fail(
+                Response::HTTP_BAD_GATEWAY,
+                __('messages.stripe_api_error'),
+                $exception->getMessage(),
+            );
+        }
+
+        $paymentIntent = $refund->payment_intent ?? null;
+
+        return [
+            'id' => (string) $refund->id,
+            'status' => (string) $refund->status,
+            'amount' => (int) $refund->amount,
+            'currency' => (string) $refund->currency,
+            'payment_intent' => is_string($paymentIntent) && $paymentIntent !== ''
+                ? $paymentIntent
+                : (is_object($paymentIntent) && isset($paymentIntent->id) ? (string) $paymentIntent->id : null),
+        ];
     }
 
     /**

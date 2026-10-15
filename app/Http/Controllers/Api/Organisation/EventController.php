@@ -16,6 +16,7 @@ use App\Http\Resources\EventResource;
 use App\Http\Resources\EventTicketOfferResource;
 use App\Http\Resources\EventTicketResource;
 use App\Http\Resources\MyOrderResource;
+use App\Http\Resources\OrganisationEventOrderDetailResource;
 use App\Services\Organisation\EventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -114,6 +115,9 @@ class EventController extends Controller
                 'status' => $request->filled('status')
                     ? $request->string('status')->toString()
                     : null,
+                'search' => $request->filled('search')
+                    ? $request->string('search')->toString()
+                    : null,
                 'per_page' => $request->filled('per_page')
                     ? $request->integer('per_page')
                     : null,
@@ -129,6 +133,23 @@ class EventController extends Controller
                 __('messages.event_orders_list'),
                 MyOrderResource::collection($paginator->items()),
                 $paginator,
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * Order detail for an order belonging to the authenticated organiser's organisation.
+     */
+    public function orderDetails(Request $request, EventService $event, int $order_id): JsonResponse
+    {
+        try {
+            $response = $event->orderDetails($request->user(), $order_id);
+
+            return $this->success(
+                __('messages.event_order_details'),
+                OrganisationEventOrderDetailResource::make($response['order']),
             );
         } catch (Throwable $exception) {
             return $this->failed($exception);

@@ -79,6 +79,7 @@ test('owner login response includes organisation permissions grouped by module',
             PermissionEnum::EventsCreate->value,
             PermissionEnum::EventsUpdate->value,
             PermissionEnum::EventsDelete->value,
+            PermissionEnum::EventsIssueOrderRefund->value,
         ])
         ->and($response->json('data.user.permissions'))->not->toHaveKey('organisations');
 });

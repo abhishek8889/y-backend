@@ -20,6 +20,7 @@ enum PermissionEnum: string
     case EventsCreate = 'events.create';
     case EventsUpdate = 'events.update';
     case EventsDelete = 'events.delete';
+    case EventsIssueOrderRefund = 'events.issue_order_refund';
 
     case CustomersRead = 'org_customers.read';
     case CustomersCreate = 'org_customers.create';
@@ -76,6 +77,7 @@ enum PermissionEnum: string
             self::EventsCreate,
             self::EventsUpdate,
             self::EventsDelete,
+            self::EventsIssueOrderRefund,
             self::CustomersRead,
             self::CustomersCreate,
             self::CustomersUpdate,
@@ -122,6 +124,7 @@ enum PermissionEnum: string
             self::EventsCreate => 'Create event',
             self::EventsUpdate => 'Update event',
             self::EventsDelete => 'Delete event',
+            self::EventsIssueOrderRefund => 'Issue order refund',
 
             self::CustomersRead => 'Read organisation customers',
             self::CustomersCreate => 'Create organisation customers',

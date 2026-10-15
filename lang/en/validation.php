@@ -210,6 +210,8 @@ return [
         'password' => 'password',
         'confirm_password' => 'confirm password',
         'otp' => 'verification code',
+        'refund_amount' => 'refund amount',
+        'refund_reason' => 'refund reason',
     ],
 
 ];

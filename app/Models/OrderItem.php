@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enum\OrderItemPricingTypeEnum;
 use App\Enum\OrderStatusEnum;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -22,6 +23,7 @@ use Illuminate\Support\Collection;
  * @property string $ticket_name
  * @property string|null $offer_name
  * @property int $quantity
+ * @property OrderItemPricingTypeEnum $pricing_type
  * @property string $unit_price
  * @property string $discount_amount
  * @property string $total_price
@@ -41,6 +43,7 @@ use Illuminate\Support\Collection;
     'ticket_name',
     'offer_name',
     'quantity',
+    'pricing_type',
     'unit_price',
     'discount_amount',
     'total_price',
@@ -58,6 +61,7 @@ class OrderItem extends Model
     {
         return [
             'quantity' => 'integer',
+            'pricing_type' => OrderItemPricingTypeEnum::class,
             'unit_price' => 'decimal:2',
             'discount_amount' => 'decimal:2',
             'total_price' => 'decimal:2',

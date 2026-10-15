@@ -21,8 +21,11 @@ use Illuminate\Support\Carbon;
  * @property string $amount
  * @property string $currency
  * @property string|null $payment_method
+ * @property string|null $reference_name
+ * @property string|null $external_reference_id
  * @property string $idempotency_key
  * @property string|null $failure_reason
+ * @property string|null $notes
  * @property Carbon|null $paid_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -37,8 +40,11 @@ use Illuminate\Support\Carbon;
     'amount',
     'currency',
     'payment_method',
+    'reference_name',
+    'external_reference_id',
     'idempotency_key',
     'failure_reason',
+    'notes',
     'paid_at',
 ])]
 class Payment extends Model

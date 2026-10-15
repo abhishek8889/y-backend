@@ -24,6 +24,7 @@ class MyOrderItemResource extends JsonResource
             'ticket_name' => $this->ticket_name,
             'offer_name' => $this->offer_name,
             'quantity' => $this->quantity,
+            'pricing_type' => $this->pricing_type?->value ?? $this->pricing_type,
             'unit_price' => (string) $this->unit_price,
             'total_price' => (string) $this->total_price,
             'currency' => $currency,

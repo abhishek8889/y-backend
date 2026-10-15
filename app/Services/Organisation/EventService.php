@@ -445,6 +445,7 @@ class EventService extends Service
      *
      * @param  array{
      *     status?: string|null,
+     *     search?: string|null,
      *     per_page?: int|null,
      *     cursor?: string|null
      * }  $filters
@@ -456,6 +457,7 @@ class EventService extends Service
         $event = $this->resolveOrganisationEvent($organisation->id, $eventId);
         $perPage = CursorPaginatedResponse::resolvePerPage($filters['per_page'] ?? null);
         $status = $filters['status'] ?? null;
+        $search = isset($filters['search']) ? trim((string) $filters['search']) : null;
 
         $paginator = Order::query()
             ->whereHas('items', function ($query) use ($event, $organisation): void {
@@ -471,6 +473,30 @@ class EventService extends Service
                     OrderStatusEnum::REFUNDED,
                 ]),
             )
+            ->when(
+                filled($search),
+                function ($query) use ($search, $event, $organisation): void {
+                    $like = '%'.$search.'%';
+
+                    $query->where(function ($inner) use ($like, $event, $organisation): void {
+                        $inner->where('unique_id', 'like', $like)
+                            ->orWhere('customer_name', 'like', $like)
+                            ->orWhere('customer_email', 'like', $like)
+                            ->orWhere('customer_phone', 'like', $like)
+                            ->orWhereHas('items', function ($itemQuery) use ($like, $event, $organisation): void {
+                                $itemQuery->where('event_id', $event->id)
+                                    ->where('organisation_id', $organisation->id)
+                                    ->where(function ($itemInner) use ($like): void {
+                                        $itemInner->where('ticket_name', 'like', $like)
+                                            ->orWhereHas(
+                                                'issuedTickets',
+                                                fn ($ticketQuery) => $ticketQuery->where('unique_id', 'like', $like),
+                                            );
+                                    });
+                            });
+                    });
+                },
+            )
             ->with([
                 'items' => function ($query) use ($event, $organisation): void {
                     $query->where('event_id', $event->id)
@@ -484,6 +510,46 @@ class EventService extends Service
         return [
             'event' => $event,
             'paginator' => $paginator,
+        ];
+    }
+
+    /**
+     * Order detail for an order that includes items belonging to the authenticated organisation.
+     *
+     * @return array{order: Order}
+     */
+    public function orderDetails(User $user, int $orderId): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+
+        /** @var Order|null $order */
+        $order = Order::query()
+            ->whereKey($orderId)
+            ->whereHas('items', function ($query) use ($organisation): void {
+                $query->where('organisation_id', $organisation->id);
+            })
+            ->with([
+                'creator:id,first_name,last_name,email',
+                'latestPayment',
+                'items' => function ($query) use ($organisation): void {
+                    $query->where('organisation_id', $organisation->id)
+                        ->with([
+                            'issuedTickets',
+                            'event.venue.address',
+                        ]);
+                },
+            ])
+            ->first();
+
+        if ($order === null) {
+            $this->fail(
+                Response::HTTP_NOT_FOUND,
+                __('messages.order_not_found'),
+            );
+        }
+
+        return [
+            'order' => $order,
         ];
     }
 

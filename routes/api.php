@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\MediaController;
+use App\Http\Controllers\Api\Organisation\CustomerController;
 use App\Http\Controllers\Api\Organisation\EventController;
+use App\Http\Controllers\Api\Organisation\OrderController;
 use App\Http\Controllers\Api\Organisation\OrganisationController;
 use App\Http\Controllers\Api\Organisation\OrgStripeController;
 use App\Http\Controllers\Api\Organisation\RolePermissionController;
@@ -120,7 +122,12 @@ Route::middleware('jwt')->group(function () {
             Route::delete('/delete/{event_id}', [EventController::class, 'delete'])->middleware('organisation.permission:events.delete');
             Route::post('/manage-status/{event_id}', [EventController::class, 'manageStatus'])->middleware('organisation.permission:events.update');
             Route::post('/create-custom-category', [EventController::class, 'createCustomCategory'])->middleware('organisation.permission:events.create');
-            Route::get('/orders/{event_id}', [EventController::class, 'listOrders'])->middleware('organisation.permission:events.read');
+
+            // ##### Event Order Routes ######
+            Route::prefix('orders')->group(function () {
+                Route::get('/detail/{order_id}', [EventController::class, 'orderDetails'])->middleware('organisation.permission:events.read');
+                Route::get('/{event_id}', [EventController::class, 'listOrders'])->middleware('organisation.permission:events.read');
+            });
 
             // ##### Event Ticket Routes ######
             Route::prefix('ticket')->group(function () {
@@ -162,6 +169,25 @@ Route::middleware('jwt')->group(function () {
             Route::post('/create', [StaffMemberController::class, 'create']);
             Route::post('/update/{member_id}', [StaffMemberController::class, 'update']);
             Route::post('/manage-status/{member_id}', [StaffMemberController::class, 'manageStatus']);
+        });
+
+        // ########### Customer Routes ###########
+        Route::prefix('customer')->group(function () {
+            Route::get('/info/{customer_id}', [CustomerController::class, 'info'])
+                ->middleware('organisation.permission:org_customers.read');
+        });
+
+        // ########### Order Routes ###########
+        Route::prefix('orders')->group(function () {
+            Route::prefix('refunds')->group(function () {
+                Route::get('/list', [OrderController::class, 'listRefunds'])
+                    ->middleware('organisation.permission:events.issue_order_refund');
+                Route::get('/detail/{refund_id}', [OrderController::class, 'refundDetails'])
+                    ->middleware('organisation.permission:events.issue_order_refund');
+            });
+
+            Route::post('/{order_id}/issue-refund', [OrderController::class, 'issueRefund'])
+                ->middleware('organisation.permission:events.issue_order_refund');
         });
     });
 

@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property RefundStatusEnum $status
  * @property string|null $failure_reason
  * @property Carbon|null $refunded_at
+ * @property Carbon|null $customer_notified_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -40,6 +41,7 @@ use Illuminate\Support\Carbon;
     'status',
     'failure_reason',
     'refunded_at',
+    'customer_notified_at',
 ])]
 class Refund extends Model
 {
@@ -52,6 +54,7 @@ class Refund extends Model
             'amount' => 'decimal:2',
             'status' => RefundStatusEnum::class,
             'refunded_at' => 'datetime',
+            'customer_notified_at' => 'datetime',
         ];
     }
 

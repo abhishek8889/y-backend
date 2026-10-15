@@ -79,14 +79,13 @@ test('provisioning on a new organisation grants all organisation-scoped permissi
 
     expect($role->name)->toBe(RoleEnum::OWNER->value);
     expect($role->description)->toBe(RoleEnum::OWNER->description());
-    expect($role->permissions->pluck('name')->all())->toEqualCanonicalizing([
-        PermissionEnum::VenuesRead->value,
-        PermissionEnum::VenuesCreate->value,
-        PermissionEnum::VenuesUpdate->value,
-        PermissionEnum::VenuesDelete->value,
-        PermissionEnum::EventsRead->value,
-        PermissionEnum::EventsCreate->value,
-        PermissionEnum::EventsUpdate->value,
-        PermissionEnum::EventsDelete->value,
-    ]);
+    expect($role->permissions->pluck('name')->all())->toEqualCanonicalizing(
+        array_map(
+            fn (PermissionEnum $permission): string => $permission->value,
+            RoleEnum::OWNER->defaultPermissions(),
+        ),
+    );
+    expect($role->permissions->pluck('name')->all())->toContain(
+        PermissionEnum::EventsIssueOrderRefund->value,
+    );
 });

@@ -5,15 +5,18 @@ namespace App\Http\Controllers\Api\Webhooks\Stripe;
 use App\Enum\OrderStatusEnum;
 use App\Enum\PaymentProviderEnum;
 use App\Enum\PaymentStatusEnum;
+use App\Enum\RefundStatusEnum;
 use App\Enum\WebhookEventStatusEnum;
 use App\Exceptions\ServiceException;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\Refund;
 use App\Models\WebhookEvent;
 use App\Services\IssuedTicketService;
 use App\Services\OrderConfirmationMailService;
 use App\Services\OrganiserBalanceService;
+use App\Services\RefundSettlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -32,6 +35,9 @@ use Throwable;
  * - payment_intent.succeeded
  * - payment_intent.payment_failed
  * - payment_intent.canceled
+ * - refund.created
+ * - refund.updated
+ * - refund.failed
  */
 class StripePaymentWebhook extends Controller
 {
@@ -39,6 +45,7 @@ class StripePaymentWebhook extends Controller
         private readonly OrganiserBalanceService $organiserBalances,
         private readonly IssuedTicketService $issuedTickets,
         private readonly OrderConfirmationMailService $orderConfirmations,
+        private readonly RefundSettlementService $refundSettlement,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -91,6 +98,9 @@ class StripePaymentWebhook extends Controller
                 'payment_intent.succeeded' => $this->handlePaymentIntentSucceeded($event['data']),
                 'payment_intent.payment_failed' => $this->handlePaymentIntentFailed($event['data']),
                 'payment_intent.canceled' => $this->handlePaymentIntentCanceled($event['data']),
+                'refund.created' => $this->handleRefundCreated($event['data']),
+                'refund.updated' => $this->handleRefundUpdated($event['data']),
+                'refund.failed' => $this->handleRefundFailed($event['data']),
                 default => false,
             };
 
@@ -256,6 +266,199 @@ class StripePaymentWebhook extends Controller
 
             return true;
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $stripeRefund
+     */
+    private function handleRefundCreated(array $stripeRefund): bool
+    {
+        $refund = $this->resolveLocalRefund($stripeRefund);
+
+        if ($refund === null) {
+            return false;
+        }
+
+        if ($refund->status === RefundStatusEnum::SUCCEEDED
+            || $refund->status === RefundStatusEnum::FAILED) {
+            return true;
+        }
+
+        $refund->update([
+            'stripe_refund_id' => (string) ($stripeRefund['id'] ?? $refund->stripe_refund_id),
+            'status' => RefundStatusEnum::PROCESSING,
+        ]);
+
+        $status = strtolower((string) ($stripeRefund['status'] ?? ''));
+
+        if ($status === 'succeeded') {
+            $this->refundSettlement->markSucceeded($refund->fresh() ?? $refund);
+
+            return true;
+        }
+
+        if (in_array($status, ['failed', 'canceled'], true)) {
+            $this->refundSettlement->markFailed(
+                $refund->fresh() ?? $refund,
+                $this->resolveRefundFailureReason($stripeRefund),
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $stripeRefund
+     */
+    private function handleRefundUpdated(array $stripeRefund): bool
+    {
+        $refund = $this->resolveLocalRefund($stripeRefund);
+
+        if ($refund === null) {
+            return false;
+        }
+
+        $status = strtolower((string) ($stripeRefund['status'] ?? ''));
+
+        if ($status === 'succeeded') {
+            $this->refundSettlement->markSucceeded($refund);
+
+            return true;
+        }
+
+        if (in_array($status, ['failed', 'canceled'], true)) {
+            $this->refundSettlement->markFailed(
+                $refund,
+                $this->resolveRefundFailureReason($stripeRefund),
+            );
+
+            return true;
+        }
+
+        if ($refund->stripe_refund_id === null && filled($stripeRefund['id'] ?? null)) {
+            $refund->update([
+                'stripe_refund_id' => (string) $stripeRefund['id'],
+                'status' => RefundStatusEnum::PROCESSING,
+            ]);
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $stripeRefund
+     */
+    private function handleRefundFailed(array $stripeRefund): bool
+    {
+        $refund = $this->resolveLocalRefund($stripeRefund);
+
+        if ($refund === null) {
+            return false;
+        }
+
+        $this->refundSettlement->markFailed(
+            $refund,
+            $this->resolveRefundFailureReason($stripeRefund),
+        );
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $stripeRefund
+     */
+    private function resolveLocalRefund(array $stripeRefund): ?Refund
+    {
+        $stripeRefundId = (string) ($stripeRefund['id'] ?? '');
+
+        if ($stripeRefundId !== '') {
+            $refund = Refund::query()
+                ->where('stripe_refund_id', $stripeRefundId)
+                ->first();
+
+            if ($refund !== null) {
+                return $refund;
+            }
+        }
+
+        $paymentIntentId = $stripeRefund['payment_intent'] ?? null;
+
+        if (is_array($paymentIntentId)) {
+            $paymentIntentId = $paymentIntentId['id'] ?? null;
+        }
+
+        $paymentIntentId = is_string($paymentIntentId) ? $paymentIntentId : '';
+
+        if ($paymentIntentId === '') {
+            Log::channel('stripe_webhook')->warning('Local refund not found for Stripe refund', [
+                'stripe_refund_id' => $stripeRefundId,
+            ]);
+
+            return null;
+        }
+
+        $payment = Payment::query()
+            ->where('payment_intent_id', $paymentIntentId)
+            ->first();
+
+        if ($payment === null) {
+            Log::channel('stripe_webhook')->warning('Local payment not found for Stripe refund', [
+                'stripe_refund_id' => $stripeRefundId,
+                'payment_intent_id' => $paymentIntentId,
+            ]);
+
+            return null;
+        }
+
+        $refund = Refund::query()
+            ->where('payment_id', $payment->id)
+            ->whereIn('status', [
+                RefundStatusEnum::PENDING,
+                RefundStatusEnum::PROCESSING,
+            ])
+            ->when(
+                $stripeRefundId !== '',
+                fn ($query) => $query->where(function ($inner) use ($stripeRefundId): void {
+                    $inner->whereNull('stripe_refund_id')
+                        ->orWhere('stripe_refund_id', $stripeRefundId);
+                }),
+            )
+            ->orderByDesc('id')
+            ->first();
+
+        if ($refund === null) {
+            Log::channel('stripe_webhook')->warning('Open local refund not found for Stripe refund', [
+                'stripe_refund_id' => $stripeRefundId,
+                'payment_intent_id' => $paymentIntentId,
+                'payment_id' => $payment->id,
+            ]);
+
+            return null;
+        }
+
+        if ($stripeRefundId !== '' && $refund->stripe_refund_id === null) {
+            $refund->update([
+                'stripe_refund_id' => $stripeRefundId,
+            ]);
+        }
+
+        return $refund->fresh() ?? $refund;
+    }
+
+    /**
+     * @param  array<string, mixed>  $stripeRefund
+     */
+    private function resolveRefundFailureReason(array $stripeRefund): ?string
+    {
+        $failureReason = $stripeRefund['failure_reason'] ?? null;
+
+        if (filled($failureReason)) {
+            return (string) $failureReason;
+        }
+
+        $status = $stripeRefund['status'] ?? null;
+
+        return filled($status) ? 'Stripe refund status: '.$status : null;
     }
 
     /**
