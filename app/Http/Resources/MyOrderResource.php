@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Enum\CurrencyEnum;
 use App\Models\Order;
+use App\Services\MediaService;
 use App\Support\MoneyFormatter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -36,10 +37,24 @@ class MyOrderResource extends JsonResource
             'customer_email' => $this->customer_email,
             'paid_at' => $this->paid_at,
             'created_at' => $this->created_at,
+            'tickets_pdf_path' => $this->mediaUrl($this->tickets_pdf_path),
             'items' => $this->whenLoaded(
                 'items',
                 fn () => MyOrderItemResource::collection($this->items),
             ),
         ];
+    }
+
+    private function mediaUrl(?string $path): ?string
+    {
+        if (! filled($path)) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        return app(MediaService::class)->url($path);
     }
 }

@@ -39,6 +39,7 @@ class OrderService extends Service
             ])
             ->with([
                 'items.event.venue.address',
+                'items.event.images',
                 'items.issuedTickets',
             ])
             ->orderByDesc('id')

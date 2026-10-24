@@ -2,7 +2,9 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Event;
 use App\Models\OrderItem;
+use App\Services\MediaService;
 use App\Support\MoneyFormatter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -41,6 +43,7 @@ class MyOrderItemResource extends JsonResource
                         'starts_at' => $this->event->starts_at,
                         'ends_at' => $this->event->ends_at,
                         'timezone' => $this->event->timezone,
+                        'banner' => $this->eventBanner($this->event),
                         'venue' => $this->event->relationLoaded('venue')
                             ? ($this->event->venue === null
                                 ? null
@@ -61,6 +64,32 @@ class MyOrderItemResource extends JsonResource
                 'issuedTickets',
                 fn () => IssuedTicketResource::collection($this->issuedTickets),
             ),
+        ];
+    }
+
+    /**
+     * @return array{path: string, url: string, alt_text: string|null}|null
+     */
+    private function eventBanner(Event $event): ?array
+    {
+        if (! $event->relationLoaded('images')) {
+            return null;
+        }
+
+        $banner = $event->images->firstWhere('type', 'banner');
+
+        if ($banner === null || ! filled($banner->path)) {
+            return null;
+        }
+
+        $path = (string) $banner->path;
+
+        return [
+            'path' => $path,
+            'url' => str_starts_with($path, 'http://') || str_starts_with($path, 'https://')
+                ? $path
+                : app(MediaService::class)->url($path),
+            'alt_text' => $banner->alt_text,
         ];
     }
 }

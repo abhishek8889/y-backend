@@ -21,6 +21,7 @@ class SendLoginOtpRequest extends FormRequest
         return [
             'email' => ['required', 'string', 'email', 'max:255'],
             'phone' => ['required', 'string', 'max:30'],
+            'country_code' => ['required', 'string', 'max:10'],
             'first_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['nullable', 'string', 'max:255'],
         ];
@@ -39,6 +40,9 @@ class SendLoginOtpRequest extends FormRequest
             'phone.required' => __('validation.required'),
             'phone.string' => __('validation.string'),
             'phone.max' => __('validation.max.string'),
+            'country_code.required' => __('validation.required'),
+            'country_code.string' => __('validation.string'),
+            'country_code.max' => __('validation.max.string'),
             'first_name.string' => __('validation.string'),
             'first_name.max' => __('validation.max.string'),
             'last_name.string' => __('validation.string'),
@@ -54,6 +58,7 @@ class SendLoginOtpRequest extends FormRequest
         return [
             'email' => __('validation.attributes.email'),
             'phone' => __('validation.attributes.phone'),
+            'country_code' => __('validation.attributes.country_code'),
             'first_name' => __('validation.attributes.first_name'),
             'last_name' => __('validation.attributes.last_name'),
         ];

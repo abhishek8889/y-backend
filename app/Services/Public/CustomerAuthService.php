@@ -29,13 +29,14 @@ class CustomerAuthService extends Service
     /**
      * Store a login OTP and email the code. User is created only on verify.
      *
-     * @param  array{email: string, phone: string, first_name?: string|null, last_name?: string|null}  $data
+     * @param  array{email: string, phone: string, country_code: string, first_name?: string|null, last_name?: string|null}  $data
      * @return array{email: string}
      */
     public function sendLoginOtp(array $data): array
     {
         $email = Str::lower($data['email']);
         $phone = trim($data['phone']);
+        $countryCode = trim($data['country_code']);
         $firstName = isset($data['first_name']) ? trim((string) $data['first_name']) : '';
         $lastName = isset($data['last_name']) ? trim((string) $data['last_name']) : '';
 
@@ -63,6 +64,7 @@ class CustomerAuthService extends Service
             'type' => VerificationOtpTypeEnum::LOGIN_TYPE,
             'email' => $email,
             'phone' => $phone,
+            'country_code' => $countryCode,
             'first_name' => $firstName,
             'last_name' => $lastName,
             'otp' => Hash::make($plainOtp),
@@ -129,6 +131,7 @@ class CustomerAuthService extends Service
                 'last_name' => filled($verification->last_name) ? $verification->last_name : 'Customer',
                 'email' => $email,
                 'phone' => $verification->phone,
+                'country_code' => $verification->country_code,
                 'password' => Str::password(32),
                 'status' => StatusEnum::ACTIVE,
                 'email_verified_at' => now(),
@@ -146,6 +149,10 @@ class CustomerAuthService extends Service
 
             if (filled($verification->phone) && $user->phone !== $verification->phone) {
                 $updates['phone'] = $verification->phone;
+            }
+
+            if (filled($verification->country_code) && $user->country_code !== $verification->country_code) {
+                $updates['country_code'] = $verification->country_code;
             }
 
             if ($updates !== []) {

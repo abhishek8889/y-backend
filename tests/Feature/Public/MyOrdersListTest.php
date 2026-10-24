@@ -6,6 +6,7 @@ use App\Enum\IssuedTicketStatusEnum;
 use App\Enum\OrderStatusEnum;
 use App\Enum\PermissionScopeEnum;
 use App\Models\Event;
+use App\Models\EventImage;
 use App\Models\EventTicket;
 use App\Models\IssuedTicket;
 use App\Models\Order;
@@ -15,6 +16,7 @@ use App\Models\User;
 use App\Models\Venue;
 use App\Models\VenueAddress;
 use App\Services\JwtTokenService;
+use App\Services\MediaService;
 use App\Support\UniqueIdGenerator;
 use Illuminate\Support\Str;
 
@@ -203,6 +205,20 @@ test('my orders list requires authentication', function () {
 test('authenticated customer can list paid orders with event venue and scan codes', function () {
     $customer = User::factory()->create();
     ['order' => $order, 'scan_code' => $scanCode] = paidOrderWithIssuedTicketFixture($customer);
+    $bannerPath = 'events/banners/live-music.jpg';
+    $pdfPath = 'tickets/orders/'.$order->unique_id.'.pdf';
+
+    $order->update([
+        'tickets_pdf_path' => $pdfPath,
+    ]);
+
+    EventImage::query()->create([
+        'event_id' => $order->items->first()->event_id,
+        'type' => 'banner',
+        'path' => $bannerPath,
+        'alt_text' => 'Live Music Event',
+        'sort_order' => 0,
+    ]);
 
     test()->withToken(myOrdersCustomerToken($customer))
         ->getJson('/api/public/my-orders-list')
@@ -213,9 +229,12 @@ test('authenticated customer can list paid orders with event venue and scan code
         ->assertJsonPath('data.items.0.status', OrderStatusEnum::PAID->value)
         ->assertJsonPath('data.items.0.formatted_total', '£20.00')
         ->assertJsonPath('data.items.0.currency_sign', '£')
+        ->assertJsonPath('data.items.0.tickets_pdf_path', app(MediaService::class)->url($pdfPath))
         ->assertJsonPath('data.items.0.items.0.ticket_name', 'General Admission')
         ->assertJsonPath('data.items.0.items.0.offer_name', 'Early Bird')
         ->assertJsonPath('data.items.0.items.0.event.name', 'Live Music Event')
+        ->assertJsonPath('data.items.0.items.0.event.banner.path', $bannerPath)
+        ->assertJsonPath('data.items.0.items.0.event.banner.url', app(MediaService::class)->url($bannerPath))
         ->assertJsonPath('data.items.0.items.0.event.venue.name', 'ABC Venue')
         ->assertJsonPath('data.items.0.items.0.event.venue.address.city', 'London')
         ->assertJsonPath('data.items.0.items.0.event.venue.address.address_line_1', '1 Test Street')

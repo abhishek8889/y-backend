@@ -19,6 +19,7 @@ test('send login otp stores verification without creating a user', function () {
     test()->postJson('/api/public/send-login-otp', [
         'email' => 'buyer@example.com',
         'phone' => '7123456789',
+        'country_code' => '+44',
         'first_name' => 'John',
         'last_name' => 'Doe',
     ])
@@ -35,11 +36,23 @@ test('send login otp stores verification without creating a user', function () {
         'type' => VerificationOtpTypeEnum::LOGIN_TYPE->value,
         'email' => 'buyer@example.com',
         'phone' => '7123456789',
+        'country_code' => '+44',
         'first_name' => 'John',
         'last_name' => 'Doe',
     ]);
 
     Mail::assertQueued(AppMail::class);
+});
+
+test('send login otp requires a country code', function () {
+    test()->postJson('/api/public/send-login-otp', [
+        'email' => 'buyer@example.com',
+        'phone' => '7123456789',
+    ])->assertUnprocessable()
+        ->assertJsonPath('success', false)
+        ->assertJsonPath('message', __('validation.required', [
+            'attribute' => __('validation.attributes.country_code'),
+        ]));
 });
 
 test('send login otp for existing user does not reset the password', function () {
@@ -56,6 +69,7 @@ test('send login otp for existing user does not reset the password', function ()
     test()->postJson('/api/public/send-login-otp', [
         'email' => 'existing@example.com',
         'phone' => '7111111111',
+        'country_code' => '+44',
         'first_name' => 'Existing',
         'last_name' => 'User',
     ])->assertOk();
@@ -74,6 +88,7 @@ test('verify login otp creates a new customer with a random password', function 
     test()->postJson('/api/public/send-login-otp', [
         'email' => 'buyer@example.com',
         'phone' => '7123456789',
+        'country_code' => '+44',
         'first_name' => 'John',
         'last_name' => 'Doe',
     ])->assertOk();
@@ -101,6 +116,7 @@ test('verify login otp creates a new customer with a random password', function 
     $this->assertDatabaseHas('users', [
         'email' => 'buyer@example.com',
         'phone' => '7123456789',
+        'country_code' => '+44',
         'first_name' => 'John',
         'last_name' => 'Doe',
     ]);
@@ -123,6 +139,7 @@ test('verify login otp for existing user does not change password', function () 
     test()->postJson('/api/public/send-login-otp', [
         'email' => 'existing@example.com',
         'phone' => '7123456789',
+        'country_code' => '+44',
         'first_name' => 'Existing',
         'last_name' => 'User',
     ])->assertOk();
@@ -151,6 +168,7 @@ test('verify login otp keeps organisation context for organiser users', function
     test()->postJson('/api/public/send-login-otp', [
         'email' => $user->email,
         'phone' => $user->phone ?? '7123456789',
+        'country_code' => '+44',
     ])->assertOk();
 
     VerificationOtp::query()
@@ -178,6 +196,7 @@ test('verify login otp keeps platform context for platform staff', function () {
     test()->postJson('/api/public/send-login-otp', [
         'email' => $user->email,
         'phone' => '7123456789',
+        'country_code' => '+44',
     ])->assertOk();
 
     VerificationOtp::query()
@@ -200,6 +219,7 @@ test('verify login otp rejects invalid codes', function () {
     test()->postJson('/api/public/send-login-otp', [
         'email' => 'buyer@example.com',
         'phone' => '7123456789',
+        'country_code' => '+44',
         'first_name' => 'John',
     ])->assertOk();
 

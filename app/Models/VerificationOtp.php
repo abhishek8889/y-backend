@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
  * @property VerificationOtpTypeEnum $type
  * @property string|null $email
  * @property string|null $phone
+ * @property string|null $country_code
  * @property string|null $first_name
  * @property string|null $last_name
  * @property string $otp
@@ -23,6 +24,7 @@ use Illuminate\Support\Carbon;
     'type',
     'email',
     'phone',
+    'country_code',
     'first_name',
     'last_name',
     'otp',
