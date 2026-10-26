@@ -145,6 +145,11 @@ Route::middleware('jwt')->group(function () {
                     Route::delete('/delete/{offer_id}', [EventController::class, 'deleteTicketOffer'])->middleware('organisation.permission:events.update');
                 });
             });
+
+            // ######## Refund List Routes ########
+            Route::prefix('{event_id}/refunds')->group(function () {
+                Route::get('/', [EventController::class, 'listRefunds'])->middleware('organisation.permission:events.read');
+            });
         });
 
         // ###### Organisation Stripe Connect Routes ######

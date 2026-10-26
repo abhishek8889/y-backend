@@ -17,6 +17,7 @@ use App\Http\Resources\EventTicketOfferResource;
 use App\Http\Resources\EventTicketResource;
 use App\Http\Resources\MyOrderResource;
 use App\Http\Resources\OrganisationEventOrderDetailResource;
+use App\Http\Resources\OrganisationRefundResource;
 use App\Services\Organisation\EventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -150,6 +151,46 @@ class EventController extends Controller
             return $this->success(
                 __('messages.event_order_details'),
                 OrganisationEventOrderDetailResource::make($response['order']),
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * List refunds for an event belonging to the authenticated organiser's organisation.
+     */
+    public function listRefunds(Request $request, EventService $event, int $event_id): JsonResponse
+    {
+        try {
+            $filters = [
+                'status' => $request->filled('status')
+                    ? $request->string('status')->toString()
+                    : null,
+                'search' => $request->filled('search')
+                    ? $request->string('search')->toString()
+                    : null,
+                'start_date' => $request->filled('start_date')
+                    ? $request->string('start_date')->toString()
+                    : null,
+                'end_date' => $request->filled('end_date')
+                    ? $request->string('end_date')->toString()
+                    : null,
+                'per_page' => $request->filled('per_page')
+                    ? $request->integer('per_page')
+                    : null,
+                'cursor' => $request->filled('cursor')
+                    ? $request->string('cursor')->toString()
+                    : null,
+            ];
+
+            $response = $event->listRefunds($request->user(), $event_id, $filters);
+            $paginator = $response['paginator'];
+
+            return $this->successPaginated(
+                __('messages.event_refunds_list'),
+                OrganisationRefundResource::collection($paginator->items()),
+                $paginator,
             );
         } catch (Throwable $exception) {
             return $this->failed($exception);

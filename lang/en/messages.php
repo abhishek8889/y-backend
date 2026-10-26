@@ -183,6 +183,8 @@ return [
     'event_ticket_list' => 'Event ticket list.',
     'event_orders_list' => 'Event orders list.',
     'event_order_details' => 'Event order details.',
+    'event_refunds_list' => 'Event refunds list.',
+    'event_refunds_invalid_date' => 'Refund date range is invalid.',
     'organisation_order_refund_issued' => 'Refund issued.',
     'organisation_order_refunds_list' => 'Refund list.',
     'organisation_order_refund_details' => 'Refund details.',

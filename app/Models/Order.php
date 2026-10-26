@@ -140,6 +140,22 @@ class Order extends Model
     }
 
     /**
+     * @return HasMany<OrganisationCustomer, $this>
+     */
+    public function firstOrganisationCustomers(): HasMany
+    {
+        return $this->hasMany(OrganisationCustomer::class, 'first_order_id');
+    }
+
+    /**
+     * @return HasMany<OrganisationCustomer, $this>
+     */
+    public function lastOrganisationCustomers(): HasMany
+    {
+        return $this->hasMany(OrganisationCustomer::class, 'last_order_id');
+    }
+
+    /**
      * @return HasMany<IssuedTicket, $this>
      */
     public function issuedTickets(): HasMany

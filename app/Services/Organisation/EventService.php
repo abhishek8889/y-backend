@@ -6,6 +6,7 @@ use App\Enum\EventStatusEnum;
 use App\Enum\EventTicketOfferStatusEnum;
 use App\Enum\EventTicketStatusEnum;
 use App\Enum\OrderStatusEnum;
+use App\Enum\RefundStatusEnum;
 use App\Exceptions\ServiceException;
 use App\Http\Responses\CursorPaginatedResponse;
 use App\Models\Event;
@@ -14,6 +15,7 @@ use App\Models\EventTicket;
 use App\Models\EventTicketOffer;
 use App\Models\Order;
 use App\Models\Organisation;
+use App\Models\Refund;
 use App\Models\User;
 use App\Models\Venue;
 use App\Services\MediaService;
@@ -503,6 +505,96 @@ class EventService extends Service
                         ->where('organisation_id', $organisation->id)
                         ->with('issuedTickets');
                 },
+            ])
+            ->orderByDesc('id')
+            ->cursorPaginate($perPage, ['*'], 'cursor', $filters['cursor'] ?? null);
+
+        return [
+            'event' => $event,
+            'paginator' => $paginator,
+        ];
+    }
+
+    /**
+     * Cursor-paginated refunds for orders that include items for an event owned by the organisation.
+     *
+     * @param  array{
+     *     status?: string|null,
+     *     search?: string|null,
+     *     start_date?: string|null,
+     *     end_date?: string|null,
+     *     per_page?: int|null,
+     *     cursor?: string|null
+     * }  $filters
+     * @return array{paginator: CursorPaginator, event: Event}
+     */
+    public function listRefunds(User $user, int $eventId, array $filters = []): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+        $event = $this->resolveOrganisationEvent($organisation->id, $eventId);
+        $perPage = CursorPaginatedResponse::resolvePerPage($filters['per_page'] ?? null);
+        $status = isset($filters['status']) ? trim((string) $filters['status']) : null;
+        $search = isset($filters['search']) ? trim((string) $filters['search']) : null;
+        $startDate = $this->parseUtcFilterDate($filters['start_date'] ?? null, false);
+        $endDate = $this->parseUtcFilterDate($filters['end_date'] ?? null, true);
+
+        if (filled($status) && RefundStatusEnum::tryFrom($status) === null) {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.organisation_order_refund_invalid_status'),
+            );
+        }
+
+        if ($startDate !== null && $endDate !== null && $startDate->gt($endDate)) {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.event_refunds_invalid_date'),
+            );
+        }
+
+        $paginator = Refund::query()
+            ->whereHas('order.items', function ($query) use ($event, $organisation): void {
+                $query->where('event_id', $event->id)
+                    ->where('organisation_id', $organisation->id);
+            })
+            ->when(
+                filled($status),
+                fn ($query) => $query->where('status', $status),
+            )
+            ->when(
+                $startDate !== null,
+                fn ($query) => $query->where('created_at', '>=', $startDate),
+            )
+            ->when(
+                $endDate !== null,
+                fn ($query) => $query->where('created_at', '<=', $endDate),
+            )
+            ->when(
+                filled($search),
+                function ($query) use ($search): void {
+                    $like = '%'.$search.'%';
+
+                    $query->where(function ($inner) use ($like, $search): void {
+                        $inner->where('amount', 'like', $like)
+                            ->orWhereHas('order', function ($orderQuery) use ($like): void {
+                                $orderQuery->where('unique_id', 'like', $like)
+                                    ->orWhere('customer_name', 'like', $like);
+                            });
+
+                        if (is_numeric($search)) {
+                            $inner->orWhere(
+                                'amount',
+                                number_format((float) $search, 2, '.', ''),
+                            );
+                        }
+                    });
+                },
+            )
+            ->with([
+                'order:id,unique_id,status,customer_name,customer_email,customer_phone,total_amount,currency',
+                'payment:id,provider,amount,currency,payment_intent_id',
+                'requester:id,first_name,last_name,email',
+                'approver:id,first_name,last_name,email',
             ])
             ->orderByDesc('id')
             ->cursorPaginate($perPage, ['*'], 'cursor', $filters['cursor'] ?? null);
@@ -1207,6 +1299,33 @@ class EventService extends Service
         }
 
         return $event;
+    }
+
+    /**
+     * Parse a UTC filter date. Date-only values expand to the start or end of that UTC day.
+     */
+    private function parseUtcFilterDate(mixed $value, bool $endOfDay): ?Carbon
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        $raw = trim((string) $value);
+
+        try {
+            $date = Carbon::parse($raw, 'UTC')->utc();
+        } catch (Throwable) {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.event_refunds_invalid_date'),
+            );
+        }
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) === 1) {
+            return $endOfDay ? $date->endOfDay() : $date->startOfDay();
+        }
+
+        return $date;
     }
 
     /**

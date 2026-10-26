@@ -85,6 +85,14 @@ class User extends Authenticatable
     }
 
     /**
+     * @return HasMany<OrganisationCustomer, $this>
+     */
+    public function organisationCustomers(): HasMany
+    {
+        return $this->hasMany(OrganisationCustomer::class);
+    }
+
+    /**
      * @return HasOne<PlatformStaff, $this>
      */
     public function platformStaff(): HasOne

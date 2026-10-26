@@ -101,6 +101,14 @@ class Organisation extends Model
     }
 
     /**
+     * @return HasMany<OrganisationCustomer, $this>
+     */
+    public function customers(): HasMany
+    {
+        return $this->hasMany(OrganisationCustomer::class);
+    }
+
+    /**
      * @return HasMany<Role, $this>
      */
     public function roles(): HasMany
