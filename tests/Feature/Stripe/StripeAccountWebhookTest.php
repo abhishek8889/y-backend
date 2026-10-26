@@ -162,7 +162,7 @@ test('upserts organisation_stripe_external_accounts from external_account.create
         ->and($external->fingerprint)->toBe('fp_test');
 });
 
-test('updates charges_enabled from capability.updated', function () {
+test('updates payouts_enabled from capability.updated and marks onboarding complete', function () {
     Config::set('stripe.webhook_secret', 'whsec_test_secret');
 
     $organisation = Organisation::factory()->create();
@@ -173,6 +173,7 @@ test('updates charges_enabled from capability.updated', function () {
         'country' => 'GB',
         'default_currency' => 'gbp',
         'charges_enabled' => false,
+        'payouts_enabled' => false,
         'details_submitted' => true,
         'onboarding_status' => StripeOnboardingStatusEnum::PENDING,
     ]);
@@ -183,7 +184,7 @@ test('updates charges_enabled from capability.updated', function () {
         'type' => 'capability.updated',
         'data' => [
             'object' => [
-                'id' => 'card_payments',
+                'id' => 'transfers',
                 'object' => 'capability',
                 'account' => 'acct_cap_test',
                 'status' => 'active',
@@ -195,7 +196,7 @@ test('updates charges_enabled from capability.updated', function () {
 
     $stripeAccount->refresh();
 
-    expect($stripeAccount->charges_enabled)->toBeTrue()
+    expect($stripeAccount->payouts_enabled)->toBeTrue()
         ->and($stripeAccount->onboarding_status)->toBe(StripeOnboardingStatusEnum::COMPLETE);
 });
 

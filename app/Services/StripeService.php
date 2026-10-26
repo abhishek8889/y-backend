@@ -22,7 +22,12 @@ class StripeService extends Service
     public const ACCOUNT_LINK_UPDATE = 'account_update';
 
     /**
-     * Create a Stripe Connected Account for an organisation and return an onboarding link.
+     * Create a Stripe Connected Account (Accounts v2) and return an onboarding link.
+     *
+     * Flow:
+     * 1. POST /v2/core/accounts
+     * 2. Save the Stripe account id locally
+     * 3. POST /v2/core/account_links so the organiser can finish onboarding
      *
      * @param  array<string, mixed>  $options
      * @return array{
@@ -40,6 +45,7 @@ class StripeService extends Service
         }
 
         $email = $organisation->email;
+
         if (! filled($email)) {
             $this->fail(
                 Response::HTTP_UNPROCESSABLE_ENTITY,
@@ -47,42 +53,49 @@ class StripeService extends Service
             );
         }
 
-        $country = $this->resolveConnectCountry($organisation, $options);
-        // $businessType = (string) ($options['business_type']
-        //     ?? config('stripe.connect.business_type', 'company'));
+        // Accounts v2 expects lowercase country codes (e.g. "gb").
+        $country = strtolower($this->resolveConnectCountry($organisation, $options));
+        $currency = strtolower((string) config('stripe.connect.default_currency', 'gbp'));
 
         try {
-            $account = $this->stripe()->accounts->create([
-                'country' => $country,
-                'email' => $email,
-                // 'business_type' => $businessType,
-                'capabilities' => [
-                    'card_payments' => ['requested' => true],
-                    'transfers' => ['requested' => true],
+            $account = $this->stripe()->v2->core->accounts->create([
+                'contact_email' => $email,
+                'display_name' => (string) $organisation->name,
+                'dashboard' => 'express',
+                'identity' => [
+                    'country' => $country,
                 ],
-                'controller' => [
-                    'losses' => ['payments' => 'application'],
-                    'fees' => ['payer' => 'application'],
-                    'requirement_collection' => 'stripe',
-                    'stripe_dashboard' => ['type' => 'express'],
+                // Platform pays Stripe fees and covers losses (marketplace style).
+                'defaults' => [
+                    'currency' => $currency,
+                    'responsibilities' => [
+                        'fees_collector' => 'application',
+                        'losses_collector' => 'application',
+                    ],
                 ],
-                'settings' => [
-                    'payouts' => [
-                        'schedule' => [
-                            'interval' => 'manual',
+                // Recipient = organiser can receive transfers from the platform.
+                'configuration' => [
+                    'recipient' => [
+                        'capabilities' => [
+                            'stripe_balance' => [
+                                'stripe_transfers' => [
+                                    'requested' => true,
+                                ],
+                            ],
                         ],
-                        'debit_negative_balances' => true,
                     ],
                 ],
                 'metadata' => [
                     'organisation_id' => (string) $organisation->id,
-                    'organisation_unique_id' => $organisation->unique_id,
+                    'organisation_unique_id' => (string) $organisation->unique_id,
+                ],
+                'include' => [
+                    'configuration.recipient',
+                    'identity',
+                    'requirements',
                 ],
             ]);
-
-            dd('account created', $account);
         } catch (ApiErrorException $exception) {
-            dd($exception->getMessage());
             $this->fail(
                 Response::HTTP_BAD_GATEWAY,
                 __('messages.stripe_api_error'),
@@ -93,32 +106,29 @@ class StripeService extends Service
         $stripeAccount = OrganisationStripeAccount::query()->create([
             'organisation_id' => $organisation->id,
             'stripe_account_id' => $account->id,
-            'account_type' => (string) config('stripe.connect.account_type', 'custom'),
-            'country' => $country,
-            'default_currency' => strtolower((string) config('stripe.connect.default_currency', 'gbp')),
-            'business_type' => filled($account->business_type ?? null)
-                ? (string) $account->business_type
-                : null,
+            'account_type' => 'express',
+            'country' => strtoupper($country),
+            'default_currency' => $currency,
+            'business_type' => null,
             'email' => $email,
-            'charges_enabled' => (bool) ($account->charges_enabled ?? false),
-            'payouts_enabled' => (bool) ($account->payouts_enabled ?? false),
-            'details_submitted' => (bool) ($account->details_submitted ?? false),
+            'charges_enabled' => false,
+            'payouts_enabled' => false,
+            'details_submitted' => false,
             'onboarding_status' => StripeOnboardingStatusEnum::PENDING,
             'last_synced_at' => Carbon::now(),
             'metadata' => [
-                'stripe_created' => $account->created ?? null,
+                'api' => 'v2',
+                'display_name' => $account->display_name ?? $organisation->name,
             ],
         ]);
 
-        $onboardingLink = $this->createAccountLink(
-            $stripeAccount,
-            self::ACCOUNT_LINK_ONBOARDING,
-            $options,
-        );
-
         return [
             'stripe_account' => $stripeAccount,
-            'onboarding_link' => $onboardingLink,
+            'onboarding_link' => $this->createAccountLink(
+                $stripeAccount,
+                self::ACCOUNT_LINK_ONBOARDING,
+                $options,
+            ),
         ];
     }
 
@@ -157,8 +167,7 @@ class StripeService extends Service
     }
 
     /**
-     * Shared Account Link creator.
-     * $type: account_onboarding (new) | account_update (existing).
+     * Create a v2 Account Link (onboarding or update).
      *
      * @param  array<string, mixed>  $options
      * @return array{url: string, expires_at: string|null}
@@ -184,11 +193,33 @@ class StripeService extends Service
             ?? rtrim((string) config('app.url'), '/').'/stripe/connect/refresh');
 
         try {
-            $accountLink = $this->stripe()->accountLinks->create([
+            // Accounts v2: POST /v2/core/account_links
+            // $accountLink = $this->stripe()->v2->core->accountLinks->create([
+            //     'account' => $stripeAccount->stripe_account_id,
+            //     'use_case' => [
+            //         'type' => $type,
+            //         $type => [
+            //             'configurations' => ['recipient'],
+            //             'refresh_url' => $refreshUrl,
+            //             'return_url' => $returnUrl,
+            //         ],
+            //     ],
+            // ]);
+
+            $accountLink = $this->stripe()->v2->core->accountLinks->create([
                 'account' => $stripeAccount->stripe_account_id,
-                'refresh_url' => $refreshUrl,
-                'return_url' => $returnUrl,
-                'type' => $type,
+                'use_case' => [
+                    'type' => $type,  // 'account_onboarding' or 'account_update'
+                    $type => [
+                        'configurations' => ['recipient'],
+                        'refresh_url'    => $refreshUrl,
+                        'return_url'     => $returnUrl,
+                        'collection_options' => [
+                            'fields'              => 'eventually_due',  // collect ALL requirements upfront
+                            'future_requirements' => 'include',         // include upcoming requirements too
+                        ],
+                    ],
+                ],
             ]);
         } catch (ApiErrorException $exception) {
             $this->fail(
@@ -198,12 +229,12 @@ class StripeService extends Service
             );
         }
 
-        $expiresAt = isset($accountLink->expires_at)
-            ? Carbon::createFromTimestamp($accountLink->expires_at)->toIso8601String()
+        $expiresAt = filled($accountLink->expires_at ?? null)
+            ? Carbon::parse((string) $accountLink->expires_at)->toIso8601String()
             : null;
 
         return [
-            'url' => $accountLink->url,
+            'url' => (string) $accountLink->url,
             'expires_at' => $expiresAt,
         ];
     }
@@ -445,7 +476,29 @@ class StripeService extends Service
      */
     public function resolveOrganisationStripeAccount(User $user): array
     {
-        $this->notImplemented(__FUNCTION__);
+        $organisationId = $user->loginContext()['organisation_id'] ?? null;
+
+        if ($organisationId === null) {
+            $this->fail(
+                Response::HTTP_NOT_FOUND,
+                __('messages.organisation_not_found'),
+            );
+        }
+
+        $stripeAccount = OrganisationStripeAccount::query()
+            ->where('organisation_id', $organisationId)
+            ->first();
+
+        if ($stripeAccount === null) {
+            $this->fail(
+                Response::HTTP_NOT_FOUND,
+                __('messages.stripe_connected_account_not_found'),
+            );
+        }
+
+        return [
+            'stripe_account' => $stripeAccount,
+        ];
     }
 
     /**

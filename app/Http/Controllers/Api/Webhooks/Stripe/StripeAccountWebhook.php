@@ -36,6 +36,7 @@ class StripeAccountWebhook extends Controller
 {
     private const V2_ACCOUNT_INCLUDES = [
         'configuration.merchant',
+        'configuration.recipient',
         'identity',
         'defaults',
         'requirements',
@@ -336,7 +337,7 @@ class StripeAccountWebhook extends Controller
 
         $onboardingStatus = $this->resolveOnboardingStatus(
             closed: false,
-            chargesEnabled: $chargesEnabled,
+            payoutsEnabled: $payoutsEnabled,
             detailsSubmitted: $detailsSubmitted,
             disabledReason: $disabledReason,
         );
@@ -383,7 +384,8 @@ class StripeAccountWebhook extends Controller
     private function mapV2AccountFields(array $account, OrganisationStripeAccount $existing): array
     {
         $cardPaymentsStatus = data_get($account, 'configuration.merchant.capabilities.card_payments.status');
-        $payoutsStatus = data_get($account, 'configuration.merchant.capabilities.stripe_balance.payouts.status');
+        $payoutsStatus = data_get($account, 'configuration.merchant.capabilities.stripe_balance.payouts.status')
+            ?? data_get($account, 'configuration.recipient.capabilities.stripe_balance.stripe_transfers.status');
 
         $chargesEnabled = $cardPaymentsStatus === 'active';
         $payoutsEnabled = $payoutsStatus === 'active';
@@ -397,7 +399,7 @@ class StripeAccountWebhook extends Controller
 
         $onboardingStatus = $this->resolveOnboardingStatus(
             closed: $closed,
-            chargesEnabled: $chargesEnabled,
+            payoutsEnabled: $payoutsEnabled,
             detailsSubmitted: $detailsSubmitted,
             disabledReason: $disabledReason,
         );
@@ -474,13 +476,13 @@ class StripeAccountWebhook extends Controller
 
     private function resolveOnboardingStatus(
         bool $closed,
-        bool $chargesEnabled,
+        bool $payoutsEnabled,
         bool $detailsSubmitted,
         ?string $disabledReason,
     ): StripeOnboardingStatusEnum {
         return match (true) {
             $closed, filled($disabledReason) => StripeOnboardingStatusEnum::RESTRICTED,
-            $chargesEnabled && $detailsSubmitted => StripeOnboardingStatusEnum::COMPLETE,
+            $payoutsEnabled && $detailsSubmitted => StripeOnboardingStatusEnum::COMPLETE,
             default => StripeOnboardingStatusEnum::PENDING,
         };
     }
@@ -705,11 +707,11 @@ class StripeAccountWebhook extends Controller
             $attributes['payouts_enabled'] = $active;
         }
 
-        $chargesEnabled = (bool) ($attributes['charges_enabled'] ?? $stripeAccount->charges_enabled);
+        $payoutsEnabled = (bool) ($attributes['payouts_enabled'] ?? $stripeAccount->payouts_enabled);
         $detailsSubmitted = $stripeAccount->details_submitted;
         $attributes['onboarding_status'] = $this->resolveOnboardingStatus(
             closed: false,
-            chargesEnabled: $chargesEnabled,
+            payoutsEnabled: $payoutsEnabled,
             detailsSubmitted: $detailsSubmitted,
             disabledReason: $stripeAccount->requirements_disabled_reason,
         );

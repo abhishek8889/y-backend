@@ -13,7 +13,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *     roles: list<string>,
  *     organisation_id: int|null,
  *     permissions: array<string, list<string>>,
- *     organisation_approve_status?: bool
+ *     organisation_approve_status?: bool,
+ *     stripe_connect_account_created?: bool,
+ *     connect_onboarding_status?: string
  * } $resource
  */
 class AuthenticatedUserResource extends JsonResource
@@ -37,6 +39,14 @@ class AuthenticatedUserResource extends JsonResource
             'organisation_approve_status' => $this->when(
                 array_key_exists('organisation_approve_status', $this->resource),
                 $this->resource['organisation_approve_status'] ?? null,
+            ),
+            'stripe_connect_account_created' => $this->when(
+                array_key_exists('stripe_connect_account_created', $this->resource),
+                $this->resource['stripe_connect_account_created'] ?? false,
+            ),
+            'connect_onboarding_status' => $this->when(
+                array_key_exists('connect_onboarding_status', $this->resource),
+                $this->resource['connect_onboarding_status'] ?? null,
             ),
         ];
     }

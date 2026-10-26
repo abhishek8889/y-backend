@@ -5,7 +5,9 @@ use App\Enum\PermissionScopeEnum;
 use App\Enum\PlatformRoleEnum;
 use App\Enum\RoleEnum;
 use App\Enum\StatusEnum;
+use App\Enum\StripeOnboardingStatusEnum;
 use App\Models\Organisation;
+use App\Models\OrganisationStripeAccount;
 use App\Models\OrganiserStaff;
 use App\Models\PlatformRole;
 use App\Models\PlatformStaff;
@@ -17,7 +19,9 @@ use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 
 test('organisation members receive a jwt access token', function () {
-    $organisation = Organisation::factory()->create();
+    $organisation = Organisation::factory()->create([
+        'approve_status' => true,
+    ]);
     $owner = $organisation->owner;
 
     $this->postJson(route('organisation.login'), [
@@ -29,6 +33,7 @@ test('organisation members receive a jwt access token', function () {
         ->assertJsonPath('data.token_type', 'Bearer')
         ->assertJsonPath('data.expires_in', 3600)
         ->assertJsonPath('data.user.id', $owner->id)
+        ->assertJsonPath('data.user.organisation_approve_status', true)
         ->assertJsonStructure([
             'success',
             'message',
@@ -42,12 +47,26 @@ test('organisation members receive a jwt access token', function () {
                     'scope',
                     'roles',
                     'organisation_id',
+                    'organisation_approve_status',
                     'permissions',
                 ],
             ],
         ]);
 
     $this->assertGuest();
+});
+
+test('organisation login returns false organisation_approve_status when not approved', function () {
+    $organisation = Organisation::factory()->create([
+        'approve_status' => false,
+    ]);
+    $owner = $organisation->owner;
+
+    $this->postJson(route('organisation.login'), [
+        'email' => $owner->email,
+        'password' => 'password',
+    ])->assertOk()
+        ->assertJsonPath('data.user.organisation_approve_status', false);
 });
 
 test('owner login response includes organisation permissions grouped by module', function () {
@@ -167,6 +186,8 @@ test('about-me returns authenticated user scope roles and permissions', function
         ->assertJsonPath('data.user.organisation_id', $organisation->id)
         ->assertJsonPath('data.user.roles', [RoleEnum::OWNER->value])
         ->assertJsonPath('data.user.organisation_approve_status', true)
+        ->assertJsonPath('data.user.stripe_connect_account_created', false)
+        ->assertJsonPath('data.user.connect_onboarding_status', StripeOnboardingStatusEnum::NOT_STARTED->value)
         ->assertJsonStructure([
             'data' => [
                 'user' => [
@@ -180,6 +201,8 @@ test('about-me returns authenticated user scope roles and permissions', function
                     'roles',
                     'organisation_id',
                     'organisation_approve_status',
+                    'stripe_connect_account_created',
+                    'connect_onboarding_status',
                     'permissions' => [
                         'events',
                         'venues',
@@ -187,6 +210,41 @@ test('about-me returns authenticated user scope roles and permissions', function
                 ],
             ],
         ]);
+});
+
+test('about-me reports stripe connect account created for organisation owners', function () {
+    $this->seed(PermissionSeeder::class);
+
+    $owner = User::factory()->create();
+    $organisation = Organisation::factory()->for($owner, 'owner')->create([
+        'approve_status' => true,
+    ]);
+    $staff = OrganiserStaff::factory()->for($organisation)->for($owner)->create();
+    $role = Role::factory()->for($organisation)->create([
+        'name' => RoleEnum::OWNER->label(),
+        'slug' => RoleEnum::OWNER->value,
+    ]);
+    $staff->assignRole($role);
+
+    OrganisationStripeAccount::query()->create([
+        'organisation_id' => $organisation->id,
+        'stripe_account_id' => 'acct_about_me_test',
+        'account_type' => 'express',
+        'country' => 'GB',
+        'default_currency' => 'gbp',
+        'onboarding_status' => StripeOnboardingStatusEnum::PENDING,
+    ]);
+
+    $token = $this->postJson(route('organisation.login'), [
+        'email' => $owner->email,
+        'password' => 'password',
+    ])->json('data.access_token');
+
+    $this->withToken($token)
+        ->getJson(route('auth.about-me'))
+        ->assertOk()
+        ->assertJsonPath('data.user.stripe_connect_account_created', true)
+        ->assertJsonPath('data.user.connect_onboarding_status', StripeOnboardingStatusEnum::PENDING->value);
 });
 
 test('about-me for super_admin omits organisation_id', function () {

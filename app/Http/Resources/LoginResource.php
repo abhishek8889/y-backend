@@ -15,7 +15,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *     scope: string|null,
  *     roles: list<string>,
  *     organisation_id: int|null,
- *     permissions?: array<string, list<string>>
+ *     permissions?: array<string, list<string>>,
+ *     organisation_approve_status?: bool
  * } $resource
  */
 class LoginResource extends JsonResource
@@ -34,6 +35,10 @@ class LoginResource extends JsonResource
 
         if (array_key_exists('permissions', $this->resource)) {
             $userPayload['permissions'] = $this->resource['permissions'];
+        }
+
+        if (array_key_exists('organisation_approve_status', $this->resource)) {
+            $userPayload['organisation_approve_status'] = $this->resource['organisation_approve_status'];
         }
 
         return [

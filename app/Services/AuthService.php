@@ -5,8 +5,11 @@ namespace App\Services;
 use App\Enum\MailSenderEnum;
 use App\Enum\PermissionScopeEnum;
 use App\Enum\PlatformRoleEnum;
+use App\Enum\RoleEnum;
 use App\Enum\StatusEnum;
+use App\Enum\StripeOnboardingStatusEnum;
 use App\Models\Organisation;
+use App\Models\OrganisationStripeAccount;
 use App\Models\OrganiserRegistration;
 use App\Models\OrganiserStaff;
 use App\Models\User;
@@ -114,7 +117,9 @@ class AuthService extends Service
      *     roles: list<string>,
      *     organisation_id: int|null,
      *     permissions: array<string, list<string>>,
-     *     organisation_approve_status?: bool
+     *     organisation_approve_status?: bool,
+     *     stripe_connect_account_created?: bool,
+     *     connect_onboarding_status?: string
      * }
      */
     public function aboutMe(User $user): array
@@ -128,12 +133,24 @@ class AuthService extends Service
         ];
 
         $organisationId = $context['organisation_id'] ?? null;
+        $isOrganisationOwner = ($context['scope'] ?? null) === PermissionScopeEnum::ORGANISATION->value
+            && in_array(RoleEnum::OWNER->value, $context['roles'] ?? [], true);
 
         if ($organisationId !== null) {
             $organisation = Organisation::query()->find($organisationId);
 
             if ($organisation !== null && $user->owns($organisation)) {
                 $payload['organisation_approve_status'] = (bool) $organisation->approve_status;
+            }
+
+            if ($isOrganisationOwner) {
+                $stripeAccount = OrganisationStripeAccount::query()
+                    ->where('organisation_id', $organisationId)
+                    ->first();
+
+                $payload['stripe_connect_account_created'] = $stripeAccount !== null;
+                $payload['connect_onboarding_status'] = $stripeAccount?->onboarding_status?->value
+                    ?? StripeOnboardingStatusEnum::NOT_STARTED->value;
             }
         }
 
@@ -357,11 +374,25 @@ class AuthService extends Service
      *     permissions: array<string, list<string>>
      * }
      */
+    /**
+     * @param  array{scope: string|null, roles: list<string>, organisation_id: int|null}|null  $context
+     * @return array{
+     *     user: User,
+     *     access_token: string,
+     *     token_type: string,
+     *     expires_in: int,
+     *     scope: string|null,
+     *     roles: list<string>,
+     *     organisation_id: int|null,
+     *     permissions: array<string, list<string>>,
+     *     organisation_approve_status?: bool
+     * }
+     */
     private function authPayload(User $user, ?array $context = null): array
     {
         $context ??= $user->loginContext();
 
-        return [
+        $payload = [
             'user' => $user,
             'access_token' => $this->jwt->issue($user, $context),
             'token_type' => 'Bearer',
@@ -369,6 +400,18 @@ class AuthService extends Service
             ...$context,
             'permissions' => $user->permissionsGroupedByModule($context),
         ];
+
+        $organisationId = $context['organisation_id'] ?? null;
+
+        if ($organisationId !== null) {
+            $organisation = Organisation::query()->find($organisationId);
+
+            if ($organisation !== null) {
+                $payload['organisation_approve_status'] = (bool) $organisation->approve_status;
+            }
+        }
+
+        return $payload;
     }
 
     private function notifySuperAdmins(User $organiser, Organisation $organisation): void
