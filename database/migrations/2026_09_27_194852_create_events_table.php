@@ -36,8 +36,8 @@ return new class extends Migration
 
             $table->unsignedInteger('capacity')->nullable();
 
-            $table->dateTime('starts_at')->nullable();
-            $table->dateTime('ends_at')->nullable();
+            $table->dateTime('starts_at')->comment('In UTC')->nullable();
+            $table->dateTime('ends_at')->comment('In UTC')->nullable();
             $table->string('timezone')->nullable();
 
             $table->string('status')->default(EventStatusEnum::DRAFT->value);

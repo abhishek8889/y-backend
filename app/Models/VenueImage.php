@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enum\MediaTypeEnum;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +12,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $venue_id
  * @property string $type
+ * @property MediaTypeEnum $media_type
  * @property string $path
  * @property string|null $alt_text
  * @property int $sort_order
@@ -20,6 +22,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'venue_id',
     'type',
+    'media_type',
     'path',
     'alt_text',
     'sort_order',
@@ -32,6 +35,7 @@ class VenueImage extends Model
     protected function casts(): array
     {
         return [
+            'media_type' => MediaTypeEnum::class,
             'sort_order' => 'integer',
         ];
     }

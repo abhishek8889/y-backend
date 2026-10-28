@@ -5,6 +5,7 @@ namespace App\Services\Organisation;
 use App\Enum\EventStatusEnum;
 use App\Enum\EventTicketOfferStatusEnum;
 use App\Enum\EventTicketStatusEnum;
+use App\Enum\MediaTypeEnum;
 use App\Enum\OrderStatusEnum;
 use App\Enum\RefundStatusEnum;
 use App\Exceptions\ServiceException;
@@ -118,6 +119,128 @@ class EventService extends Service
                 'category',
                 'venue',
                 'images',
+            ]),
+        ];
+    }
+
+    /**
+     * Duplicate an event as a draft, including tickets and offers.
+     * Offers are always copied as draft with sale dates cleared.
+     *
+     * @return array{event: Event}
+     */
+    public function duplicate(User $user, int $eventId): array
+    {
+        $organisation = $this->resolveOrganisation($user);
+        $source = $this->resolveOrganisationEvent($organisation->id, $eventId);
+
+        $source->load([
+            'images',
+            'tickets.offers',
+        ]);
+
+        try {
+            /** @var Event $event */
+            $event = DB::transaction(function () use ($user, $organisation, $source): Event {
+                $uniqueId = UniqueIdGenerator::generate('EVT');
+                $attempts = 0;
+
+                while (
+                    Event::query()->where('unique_id', $uniqueId)->exists()
+                    && $attempts < 25
+                ) {
+                    $uniqueId = UniqueIdGenerator::generate('EVT');
+                    $attempts++;
+                }
+
+                $event = Event::query()->create([
+                    'organisation_id' => $organisation->id,
+                    'unique_id' => $uniqueId,
+                    'name' => $source->name,
+                    'event_category_id' => $source->event_category_id,
+                    'description' => $source->description,
+                    'venue_id' => $source->venue_id,
+                    'capacity' => $source->capacity,
+                    'starts_at' => $source->starts_at,
+                    'ends_at' => $source->ends_at,
+                    'timezone' => $source->timezone,
+                    'status' => EventStatusEnum::DRAFT,
+                    'published_at' => null,
+                    'completed_at' => null,
+                    'cancelled_at' => null,
+                    'created_by' => $user->id,
+                    'updated_by' => $user->id,
+                ]);
+
+                foreach ($source->images as $image) {
+                    $event->images()->create([
+                        'type' => $image->type,
+                        'media_type' => $image->media_type,
+                        'path' => $image->path,
+                        'alt_text' => $image->alt_text,
+                        'sort_order' => $image->sort_order,
+                    ]);
+                }
+
+                foreach ($source->tickets as $ticket) {
+                    $ticketStatus = $ticket->status === EventTicketStatusEnum::SOLD_OUT
+                        ? EventTicketStatusEnum::DRAFT
+                        : $ticket->status;
+
+                    $duplicatedTicket = $event->tickets()->create([
+                        'unique_id' => $this->generateUniqueId('TKT', EventTicket::class),
+                        'name' => $ticket->name,
+                        'description' => $ticket->description,
+                        'base_price' => $ticket->base_price,
+                        'currency' => $ticket->currency,
+                        'quantity_cap' => $ticket->quantity_cap,
+                        'badge_label' => $ticket->badge_label,
+                        'entitlement' => $ticket->entitlement,
+                        'status' => $ticketStatus,
+                        'sort_order' => $ticket->sort_order,
+                        'created_by' => $user->id,
+                        'updated_by' => $user->id,
+                    ]);
+
+                    foreach ($ticket->offers as $offer) {
+                        $duplicatedTicket->offers()->create([
+                            'unique_id' => $this->generateUniqueId('OFR', EventTicketOffer::class),
+                            'name' => $offer->name,
+                            'price' => $offer->price,
+                            'quantity_cap' => $offer->quantity_cap,
+                            'sale_starts_at' => null,
+                            'sale_ends_at' => null,
+                            'max_per_order' => $offer->max_per_order,
+                            'access' => $offer->access,
+                            'status' => EventTicketOfferStatusEnum::DRAFT,
+                            'sort_order' => $offer->sort_order,
+                            'created_by' => $user->id,
+                            'updated_by' => $user->id,
+                        ]);
+                    }
+                }
+
+                return $event;
+            });
+        } catch (Throwable $exception) {
+            if ($exception instanceof ServiceException) {
+                throw $exception;
+            }
+
+            report($exception);
+
+            $this->fail(
+                Response::HTTP_INTERNAL_SERVER_ERROR,
+                __('exceptions.server_error'),
+            );
+        }
+
+        return [
+            'event' => $event->fresh([
+                'category',
+                'venue',
+                'images',
+                'tickets.offers',
             ]),
         ];
     }
@@ -1344,6 +1467,7 @@ class EventService extends Service
 
             $event->images()->create([
                 'type' => $image['type'],
+                'media_type' => MediaTypeEnum::fromPath($moved['path']),
                 'path' => $moved['path'],
                 'alt_text' => $image['alt_text'] ?? null,
                 'sort_order' => $image['sort_order'] ?? $index,
@@ -1381,6 +1505,7 @@ class EventService extends Service
                     $oldPath = $existing->path;
                     $existing->update([
                         'type' => $image['type'],
+                        'media_type' => MediaTypeEnum::fromPath($moved['path']),
                         'path' => $moved['path'],
                         'alt_text' => $image['alt_text'] ?? null,
                         'sort_order' => $sortOrder,
@@ -1399,6 +1524,7 @@ class EventService extends Service
 
                     $existing->update([
                         'type' => $image['type'],
+                        'media_type' => MediaTypeEnum::fromPath($existing->path),
                         'alt_text' => $image['alt_text'] ?? null,
                         'sort_order' => $sortOrder,
                     ]);
@@ -1413,6 +1539,7 @@ class EventService extends Service
 
             $created = $event->images()->create([
                 'type' => $image['type'],
+                'media_type' => MediaTypeEnum::fromPath($moved['path']),
                 'path' => $moved['path'],
                 'alt_text' => $image['alt_text'] ?? null,
                 'sort_order' => $sortOrder,

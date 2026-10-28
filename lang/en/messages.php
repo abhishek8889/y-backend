@@ -12,6 +12,7 @@ return [
     |
     */
 
+    'timezone_list' => 'Timezone list.',
     'profile_details' => 'Profile details.',
     'organisation_details' => 'Organisation details.',
     'organisation_not_found' => 'Organisation not found.',
@@ -102,6 +103,7 @@ return [
     'event_category_already_exists' => 'This event category already exists.',
     'event_category_invalid_name' => 'Event category name is invalid.',
     'event_created' => 'Event created successfully.',
+    'event_duplicated' => 'Event duplicated successfully.',
     'event_updated' => 'Event updated successfully.',
     'event_list' => 'Event list.',
     'event_details' => 'Event details.',

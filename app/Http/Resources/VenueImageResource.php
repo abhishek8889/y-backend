@@ -20,6 +20,7 @@ class VenueImageResource extends JsonResource
         return [
             'id' => $this->id,
             'type' => $this->type,
+            'media_type' => $this->media_type?->value ?? $this->media_type,
             'path' => $this->path,
             'url' => app(MediaService::class)->url((string) $this->path),
             'alt_text' => $this->alt_text,
