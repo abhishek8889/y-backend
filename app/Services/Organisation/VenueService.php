@@ -2,6 +2,7 @@
 
 namespace App\Services\Organisation;
 
+use App\Enum\MediaTypeEnum;
 use App\Enum\StatusEnum;
 use App\Exceptions\ServiceException;
 use App\Http\Responses\CursorPaginatedResponse;
@@ -502,6 +503,7 @@ class VenueService extends Service
                 foreach ($source->images as $image) {
                     $venue->images()->create([
                         'type' => $image->type,
+                        'media_type' => $image->media_type,
                         'path' => $image->path,
                         'alt_text' => $image->alt_text,
                         'sort_order' => $image->sort_order,
@@ -907,6 +909,7 @@ class VenueService extends Service
 
             $venue->images()->create([
                 'type' => $image['type'],
+                'media_type' => MediaTypeEnum::fromPath($moved['path']),
                 'path' => $moved['path'],
                 'alt_text' => $image['alt_text'] ?? null,
                 'sort_order' => $image['sort_order'] ?? $index,
@@ -944,6 +947,7 @@ class VenueService extends Service
                     $oldPath = $existing->path;
                     $existing->update([
                         'type' => $image['type'],
+                        'media_type' => MediaTypeEnum::fromPath($moved['path']),
                         'path' => $moved['path'],
                         'alt_text' => $image['alt_text'] ?? null,
                         'sort_order' => $sortOrder,
@@ -962,6 +966,7 @@ class VenueService extends Service
 
                     $existing->update([
                         'type' => $image['type'],
+                        'media_type' => MediaTypeEnum::fromPath($existing->path),
                         'alt_text' => $image['alt_text'] ?? null,
                         'sort_order' => $sortOrder,
                     ]);
@@ -976,6 +981,7 @@ class VenueService extends Service
 
             $created = $venue->images()->create([
                 'type' => $image['type'],
+                'media_type' => MediaTypeEnum::fromPath($moved['path']),
                 'path' => $moved['path'],
                 'alt_text' => $image['alt_text'] ?? null,
                 'sort_order' => $sortOrder,

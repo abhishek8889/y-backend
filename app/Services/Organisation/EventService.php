@@ -5,6 +5,7 @@ namespace App\Services\Organisation;
 use App\Enum\EventStatusEnum;
 use App\Enum\EventTicketOfferStatusEnum;
 use App\Enum\EventTicketStatusEnum;
+use App\Enum\MediaTypeEnum;
 use App\Enum\OrderStatusEnum;
 use App\Exceptions\ServiceException;
 use App\Http\Responses\CursorPaginatedResponse;
@@ -1225,6 +1226,7 @@ class EventService extends Service
 
             $event->images()->create([
                 'type' => $image['type'],
+                'media_type' => MediaTypeEnum::fromPath($moved['path']),
                 'path' => $moved['path'],
                 'alt_text' => $image['alt_text'] ?? null,
                 'sort_order' => $image['sort_order'] ?? $index,
@@ -1262,6 +1264,7 @@ class EventService extends Service
                     $oldPath = $existing->path;
                     $existing->update([
                         'type' => $image['type'],
+                        'media_type' => MediaTypeEnum::fromPath($moved['path']),
                         'path' => $moved['path'],
                         'alt_text' => $image['alt_text'] ?? null,
                         'sort_order' => $sortOrder,
@@ -1280,6 +1283,7 @@ class EventService extends Service
 
                     $existing->update([
                         'type' => $image['type'],
+                        'media_type' => MediaTypeEnum::fromPath($existing->path),
                         'alt_text' => $image['alt_text'] ?? null,
                         'sort_order' => $sortOrder,
                     ]);
@@ -1294,6 +1298,7 @@ class EventService extends Service
 
             $created = $event->images()->create([
                 'type' => $image['type'],
+                'media_type' => MediaTypeEnum::fromPath($moved['path']),
                 'path' => $moved['path'],
                 'alt_text' => $image['alt_text'] ?? null,
                 'sort_order' => $sortOrder,
