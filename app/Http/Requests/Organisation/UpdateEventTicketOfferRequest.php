@@ -25,7 +25,7 @@ class UpdateEventTicketOfferRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'price' => ['required', 'numeric', 'min:0'],
             'quantity_cap' => ['required', 'integer', 'min:1'],
-            'sale_starts_at' => ['nullable', 'date', 'after_or_equal:'.$nowUtc],
+            'sale_starts_at' => ['required', 'date'],
             'sale_ends_at' => ['nullable', 'date', 'after:sale_starts_at', 'after_or_equal:'.$nowUtc],
             'max_per_order' => ['nullable', 'integer', 'min:1'],
             'access' => ['nullable', 'string', Rule::in(['public', 'private', 'invite_only'])],
@@ -55,7 +55,6 @@ class UpdateEventTicketOfferRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'sale_starts_at.after_or_equal' => 'Offer cannot be updated with a past date.',
             'sale_ends_at.after_or_equal' => 'Offer cannot be updated with a past date.',
         ];
     }
