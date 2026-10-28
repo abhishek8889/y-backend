@@ -15,6 +15,7 @@ use App\Enum\StatusEnum;
 use App\Models\EventTicketOffer;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrganisationCustomer;
 use App\Models\Payment;
 use App\Models\PlatformSetting;
 use App\Models\User;
@@ -191,6 +192,13 @@ class BookingService extends Service
                 ]);
             }
 
+            $organisationIds = array_values(array_unique(array_map(
+                fn (array $lineItem): int => (int) $lineItem['organisation_id'],
+                $lineItems,
+            )));
+
+            $this->connectCustomerToOrganisations($user, $order, $organisationIds);
+
             $idempotencyKey = 'order_'.$order->unique_id.'_payment';
 
             $payment = Payment::query()->create([
@@ -266,6 +274,36 @@ class BookingService extends Service
     {
         if ($user->status !== StatusEnum::ACTIVE) {
             $this->fail(Response::HTTP_FORBIDDEN, __('auth.inactive'));
+        }
+    }
+
+    /**
+     * Link the buyer as an organisation customer on booking start.
+     * Creates the membership once; later bookings only refresh last_order_id.
+     *
+     * @param  list<int>  $organisationIds
+     */
+    private function connectCustomerToOrganisations(User $user, Order $order, array $organisationIds): void
+    {
+        foreach ($organisationIds as $organisationId) {
+            $membership = OrganisationCustomer::query()->firstOrCreate(
+                [
+                    'organisation_id' => $organisationId,
+                    'user_id' => $user->id,
+                ],
+                [
+                    'first_order_id' => $order->id,
+                    'last_order_id' => $order->id,
+                    'status' => StatusEnum::ACTIVE,
+                ],
+            );
+
+            if (! $membership->wasRecentlyCreated) {
+                $membership->update([
+                    'last_order_id' => $order->id,
+                    'first_order_id' => $membership->first_order_id ?? $order->id,
+                ]);
+            }
         }
     }
 

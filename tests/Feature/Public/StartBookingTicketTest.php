@@ -7,12 +7,14 @@ use App\Enum\OrderStatusEnum;
 use App\Enum\PaymentStatusEnum;
 use App\Enum\PermissionScopeEnum;
 use App\Enum\PlatformSettingKeyEnum;
+use App\Enum\StatusEnum;
 use App\Models\Event;
 use App\Models\EventTicket;
 use App\Models\EventTicketOffer;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Organisation;
+use App\Models\OrganisationCustomer;
 use App\Models\Payment;
 use App\Models\PlatformSetting;
 use App\Models\User;
@@ -169,7 +171,7 @@ test('authenticated user can start booking with a valid offer', function () {
     Carbon::setTestNow(Carbon::parse('2026-10-06 12:00:00'));
     mockStripePaymentIntent();
 
-    ['offer' => $offer] = publishedBookableOffer();
+    ['offer' => $offer, 'organisation' => $organisation] = publishedBookableOffer();
     $customer = User::factory()->create([
         'first_name' => 'Jane',
         'last_name' => 'Doe',
@@ -202,6 +204,74 @@ test('authenticated user can start booking with a valid offer', function () {
     expect($payment)->not->toBeNull()
         ->and($payment->payment_intent_id)->toBe('pi_test_123')
         ->and($payment->status)->toBe(PaymentStatusEnum::PROCESSING);
+
+    $membership = OrganisationCustomer::query()
+        ->where('organisation_id', $organisation->id)
+        ->where('user_id', $customer->id)
+        ->first();
+
+    expect($membership)->not->toBeNull()
+        ->and($membership->status)->toBe(StatusEnum::ACTIVE)
+        ->and($membership->first_order_id)->toBe($order->id)
+        ->and($membership->last_order_id)->toBe($order->id);
+});
+
+test('booking start links customer once and refreshes last_order_id on repeat', function () {
+    Carbon::setTestNow(Carbon::parse('2026-10-06 12:00:00'));
+
+    ['offer' => $offer, 'organisation' => $organisation] = publishedBookableOffer();
+    $customer = User::factory()->create();
+
+    test()->mock(StripeService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('createPaymentIntent')
+            ->twice()
+            ->andReturn(
+                [
+                    'id' => 'pi_first',
+                    'client_secret' => 'pi_first_secret',
+                    'status' => 'requires_payment_method',
+                    'amount' => 2000,
+                    'currency' => 'gbp',
+                ],
+                [
+                    'id' => 'pi_second',
+                    'client_secret' => 'pi_second_secret',
+                    'status' => 'requires_payment_method',
+                    'amount' => 2000,
+                    'currency' => 'gbp',
+                ],
+            );
+    });
+
+    test()->withToken(customerToken($customer))
+        ->postJson('/api/public/start-booking-ticket', [
+            'offers' => [
+                ['offer_id' => $offer->id, 'qty' => 1],
+            ],
+        ])
+        ->assertOk();
+
+    $firstOrderId = (int) Order::query()->orderBy('id')->value('id');
+
+    test()->withToken(customerToken($customer))
+        ->postJson('/api/public/start-booking-ticket', [
+            'offers' => [
+                ['offer_id' => $offer->id, 'qty' => 1],
+            ],
+        ])
+        ->assertOk();
+
+    $secondOrderId = (int) Order::query()->orderByDesc('id')->value('id');
+
+    $memberships = OrganisationCustomer::query()
+        ->where('organisation_id', $organisation->id)
+        ->where('user_id', $customer->id)
+        ->get();
+
+    expect($memberships)->toHaveCount(1)
+        ->and($memberships->first()->first_order_id)->toBe($firstOrderId)
+        ->and($memberships->first()->last_order_id)->toBe($secondOrderId)
+        ->and($firstOrderId)->not->toBe($secondOrderId);
 });
 
 test('start booking rejects offers outside the sale window', function () {
