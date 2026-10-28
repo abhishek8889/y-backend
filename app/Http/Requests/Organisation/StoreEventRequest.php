@@ -27,8 +27,8 @@ class StoreEventRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'venue_id' => ['nullable', 'integer', 'exists:venues,id'],
             'capacity' => ['nullable', 'integer', 'min:0'],
-            'starts_at' => ['nullable', 'date', 'after_or_equal:'.$nowUtc],
-            'ends_at' => ['nullable', 'date', 'after:starts_at', 'after_or_equal:'.$nowUtc],
+            'starts_at' => ['nullable', 'date', 'after_or_equal:'.$nowUtc], // Expecting in UTC
+            'ends_at' => ['nullable', 'date', 'after:starts_at', 'after_or_equal:'.$nowUtc], // Expecting in UTC
             'timezone' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', 'string', Rule::in(EventStatusEnum::values())],
 

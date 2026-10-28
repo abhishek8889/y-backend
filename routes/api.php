@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\Public\AuthController as PublicAuthController;
 use App\Http\Controllers\Api\Public\BookingController as PublicBookingController;
 use App\Http\Controllers\Api\Public\EventController as PublicEventController;
 use App\Http\Controllers\Api\Public\OrderController as PublicOrderController;
+use App\Http\Controllers\Api\Public\TimezoneController as PublicTimezoneController;
 use App\Http\Controllers\Api\Public\WishlistController as PublicWishlistController;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripeAccountWebhook;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripePaymentWebhook;
@@ -65,6 +66,8 @@ Route::prefix('public')->group(function () {
         Route::get('/details/{unique_id}', [PublicEventController::class, 'details']);
         Route::get('/tickets/{unique_id}', [PublicEventController::class, 'tickets']);
     });
+
+    Route::get('/timezones', [PublicTimezoneController::class, 'list']);
 
     Route::post('/send-login-otp', [PublicAuthController::class, 'sendLoginOtp'])
         ->middleware('throttle:login');
@@ -128,6 +131,7 @@ Route::middleware('jwt')->group(function () {
             Route::get('/list', [EventController::class, 'list'])->middleware('organisation.permission:events.read');
             Route::get('/details/{event_id}', [EventController::class, 'details'])->middleware('organisation.permission:events.read');
             Route::post('/create', [EventController::class, 'create'])->middleware('organisation.permission:events.create');
+            Route::post('/duplicate/{event_id}', [EventController::class, 'duplicate'])->middleware('organisation.permission:events.create');
             Route::post('/update/{event_id}', [EventController::class, 'update'])->middleware('organisation.permission:events.update');
             Route::delete('/delete/{event_id}', [EventController::class, 'delete'])->middleware('organisation.permission:events.delete');
             Route::post('/manage-status/{event_id}', [EventController::class, 'manageStatus'])->middleware('organisation.permission:events.update');

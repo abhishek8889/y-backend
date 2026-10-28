@@ -42,6 +42,23 @@ class EventController extends Controller
     }
 
     /**
+     * Duplicate an event for the authenticated organiser's organisation.
+     */
+    public function duplicate(Request $request, EventService $event, int $event_id): JsonResponse
+    {
+        try {
+            $response = $event->duplicate($request->user(), $event_id);
+
+            return $this->success(
+                __('messages.event_duplicated'),
+                EventResource::make($response['event']),
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
      * Update an event for the authenticated organiser's organisation.
      */
     public function update(
