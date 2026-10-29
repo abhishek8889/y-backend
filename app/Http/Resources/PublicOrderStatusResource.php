@@ -22,6 +22,7 @@ class PublicOrderStatusResource extends JsonResource
             'unique_id' => $this->unique_id,
             'status' => $this->status?->value ?? $this->status,
             'sales_channel' => $this->sales_channel?->value ?? $this->sales_channel,
+            'request_origin' => $this->request_origin,
             'subtotal' => (string) $this->subtotal,
             'discount_amount' => (string) $this->discount_amount,
             'platform_fee_amount' => (string) $this->platform_fee_amount,

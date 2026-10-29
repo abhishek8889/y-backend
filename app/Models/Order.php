@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $coupon_code
  * @property OrderStatusEnum $status
  * @property OrderSalesChannelEnum $sales_channel
+ * @property string|null $request_origin
  * @property string $subtotal
  * @property string $discount_amount
  * @property string $platform_fee_amount
@@ -46,6 +47,7 @@ use Illuminate\Support\Carbon;
     'coupon_code',
     'status',
     'sales_channel',
+    'request_origin',
     'subtotal',
     'discount_amount',
     'platform_fee_amount',

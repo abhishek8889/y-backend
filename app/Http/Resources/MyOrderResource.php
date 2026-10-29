@@ -26,6 +26,7 @@ class MyOrderResource extends JsonResource
             'unique_id' => $this->unique_id,
             'status' => $this->status?->value ?? $this->status,
             'sales_channel' => $this->sales_channel?->value ?? $this->sales_channel,
+            'request_origin' => $this->request_origin,
             'currency' => $currency,
             'currency_sign' => CurrencyEnum::signFor($currency),
             'subtotal' => (string) $this->subtotal,

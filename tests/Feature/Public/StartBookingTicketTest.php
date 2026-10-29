@@ -179,6 +179,9 @@ test('authenticated user can start booking with a valid offer', function () {
     ]);
 
     test()->withToken(customerToken($customer))
+        ->withHeaders([
+            'Origin' => 'https://dev-public.yourlist.co.uk',
+        ])
         ->postJson('/api/public/start-booking-ticket', [
             'offers' => [
                 ['offer_id' => $offer->id, 'qty' => 2],
@@ -190,6 +193,7 @@ test('authenticated user can start booking with a valid offer', function () {
         ->assertJsonPath('data.order.status', OrderStatusEnum::PENDING->value)
         ->assertJsonPath('data.order.total_amount', '40.00')
         ->assertJsonPath('data.order.currency', 'GBP')
+        ->assertJsonPath('data.order.request_origin', 'https://dev-public.yourlist.co.uk')
         ->assertJsonPath('data.order.items.0.quantity', 2)
         ->assertJsonPath('data.payment.payment_intent_id', 'pi_test_123')
         ->assertJsonPath('data.payment.client_secret', 'pi_test_123_secret_abc')
@@ -198,6 +202,7 @@ test('authenticated user can start booking with a valid offer', function () {
     $order = Order::query()->first();
     expect($order)->not->toBeNull()
         ->and($order->user_id)->toBe($customer->id)
+        ->and($order->request_origin)->toBe('https://dev-public.yourlist.co.uk')
         ->and($order->items)->toHaveCount(1);
 
     $payment = Payment::query()->first();
@@ -272,6 +277,28 @@ test('booking start links customer once and refreshes last_order_id on repeat', 
         ->and($memberships->first()->first_order_id)->toBe($firstOrderId)
         ->and($memberships->first()->last_order_id)->toBe($secondOrderId)
         ->and($firstOrderId)->not->toBe($secondOrderId);
+});
+
+test('booking start stores request_origin from referer when origin header is missing', function () {
+    Carbon::setTestNow(Carbon::parse('2026-10-06 12:00:00'));
+    mockStripePaymentIntent();
+
+    ['offer' => $offer] = publishedBookableOffer();
+    $customer = User::factory()->create();
+
+    test()->withToken(customerToken($customer))
+        ->withHeaders([
+            'Referer' => 'https://keycorder.co.uk/events/123',
+        ])
+        ->postJson('/api/public/start-booking-ticket', [
+            'offers' => [
+                ['offer_id' => $offer->id, 'qty' => 1],
+            ],
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.order.request_origin', 'https://keycorder.co.uk');
+
+    expect(Order::query()->value('request_origin'))->toBe('https://keycorder.co.uk');
 });
 
 test('start booking rejects offers outside the sale window', function () {

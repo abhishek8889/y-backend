@@ -37,7 +37,7 @@ class BookingService extends Service
     /**
      * Start a public ticket booking checkout: hold inventory, create pending order, create PaymentIntent.
      *
-     * @param  array{offers: list<array{offer_id: int, qty: int}>}  $data
+     * @param  array{offers: list<array{offer_id: int, qty: int}>, request_origin?: string|null}  $data
      * @return array{
      *     order: array<string, mixed>,
      *     payment: array{
@@ -54,8 +54,11 @@ class BookingService extends Service
         $this->assertActiveUser($user);
 
         $validatedOffers = $this->validateBookableOffers($data['offers']);
+        $requestOrigin = filled($data['request_origin'] ?? null)
+            ? (string) $data['request_origin']
+            : null;
 
-        return DB::transaction(function () use ($user, $validatedOffers): array {
+        return DB::transaction(function () use ($user, $validatedOffers, $requestOrigin): array {
             // Sort IDs so concurrent multi-offer bookings always lock rows in the same order.
             $offerIds = collect($validatedOffers)
                 ->pluck('offer_id')
@@ -157,6 +160,7 @@ class BookingService extends Service
                 'coupon_code' => null,
                 'status' => OrderStatusEnum::PENDING,
                 'sales_channel' => OrderSalesChannelEnum::ONLINE,
+                'request_origin' => $requestOrigin,
                 'subtotal' => $pricing['subtotal'],
                 'discount_amount' => $pricing['discount_amount'],
                 'platform_fee_amount' => $pricing['platform_fee_amount'],
@@ -244,6 +248,8 @@ class BookingService extends Service
                     'unique_id' => $order->unique_id,
                     'checkout_key' => $order->checkout_key,
                     'status' => $order->status->value,
+                    'sales_channel' => $order->sales_channel->value,
+                    'request_origin' => $order->request_origin,
                     'subtotal' => (string) $order->subtotal,
                     'discount_amount' => (string) $order->discount_amount,
                     'platform_fee_amount' => (string) $order->platform_fee_amount,

@@ -22,6 +22,7 @@ class StartBookingTicketRequest extends FormRequest
             'offers' => ['required', 'array', 'min:1'],
             'offers.*.offer_id' => ['required', 'integer', 'exists:event_ticket_offers,id'],
             'offers.*.qty' => ['required', 'integer', 'min:1'],
+            'request_origin' => ['nullable', 'string', 'max:255'],
         ];
     }
 
