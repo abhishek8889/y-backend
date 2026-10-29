@@ -16,6 +16,7 @@ use App\Models\EventTicket;
 use App\Models\EventTicketOffer;
 use App\Models\Order;
 use App\Models\Organisation;
+use App\Models\OrganisationCustomer;
 use App\Models\Refund;
 use App\Models\User;
 use App\Models\Venue;
@@ -763,9 +764,43 @@ class EventService extends Service
             );
         }
 
+        $this->appendOrganisationCustomerSummary($order, $organisation->id);
+
         return [
             'order' => $order,
         ];
+    }
+
+    /**
+     * Attach org-scoped customer metrics used by order detail responses.
+     */
+    private function appendOrganisationCustomerSummary(Order $order, int $organisationId): void
+    {
+        $ordersCount = 0;
+        $customerSince = null;
+
+        if ($order->user_id !== null) {
+            $ordersCount = Order::query()
+                ->where('user_id', $order->user_id)
+                ->whereHas(
+                    'items',
+                    fn ($query) => $query->where('organisation_id', $organisationId),
+                )
+                ->count();
+
+            $customerSince = OrganisationCustomer::query()
+                ->where('organisation_id', $organisationId)
+                ->where('user_id', $order->user_id)
+                ->value('created_at');
+        }
+
+        $order->setAttribute('customer_orders_count', $ordersCount);
+        $order->setAttribute(
+            'customer_since',
+            $customerSince instanceof Carbon
+                ? $customerSince
+                : ($customerSince !== null ? Carbon::parse((string) $customerSince) : null),
+        );
     }
 
     /**

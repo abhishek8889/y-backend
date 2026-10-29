@@ -13,10 +13,12 @@ use App\Models\IssuedTicket;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Organisation;
+use App\Models\OrganisationCustomer;
 use App\Models\OrganiserStaff;
 use App\Models\Payment;
 use App\Models\User;
 use App\Support\UniqueIdGenerator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /**
@@ -81,6 +83,7 @@ function eventOrdersOrgFixture(): array
  * @param  array{
  *     sales_channel?: OrderSalesChannelEnum,
  *     created_by?: int|null,
+ *     user_id?: int|null,
  *     provider?: PaymentProviderEnum,
  *     reference_name?: string|null,
  *     external_reference_id?: string|null,
@@ -97,11 +100,13 @@ function createPaidOrderForEvent(
 ): array {
     $salesChannel = $options['sales_channel'] ?? OrderSalesChannelEnum::ONLINE;
     $createdBy = $options['created_by'] ?? null;
+    $userId = $options['user_id'] ?? null;
     $provider = $options['provider'] ?? PaymentProviderEnum::STRIPE;
 
     $order = Order::query()->create([
         'unique_id' => UniqueIdGenerator::generate('ORD', 12),
         'checkout_key' => (string) Str::uuid(),
+        'user_id' => $userId,
         'status' => OrderStatusEnum::PAID,
         'sales_channel' => $salesChannel,
         'subtotal' => '20.00',
@@ -346,6 +351,28 @@ test('organisation can view order detail with customer payment channel and creat
         'token' => $token,
     ] = eventOrdersOrgFixture();
 
+    $customer = User::factory()->create([
+        'email' => 'buyer@example.com',
+    ]);
+    $customerSince = Carbon::parse('2026-09-01 10:00:00');
+
+    OrganisationCustomer::factory()->create([
+        'organisation_id' => $organisation->id,
+        'user_id' => $customer->id,
+        'created_at' => $customerSince,
+        'updated_at' => $customerSince,
+    ]);
+
+    ['order' => $firstOrder] = createPaidOrderForEvent(
+        $organisation,
+        $event,
+        $ticket,
+        'buyer@example.com',
+        [
+            'user_id' => $customer->id,
+        ],
+    );
+
     ['order' => $order, 'scan_code' => $scanCode] = createPaidOrderForEvent(
         $organisation,
         $event,
@@ -354,11 +381,14 @@ test('organisation can view order detail with customer payment channel and creat
         [
             'sales_channel' => OrderSalesChannelEnum::BOX_OFFICE,
             'created_by' => $user->id,
+            'user_id' => $customer->id,
             'provider' => PaymentProviderEnum::CARD_TERMINAL,
             'reference_name' => 'SumUp Door 1',
             'external_reference_id' => 'TXN-849201',
         ],
     );
+
+    expect($firstOrder->id)->not->toBe($order->id);
 
     test()->withToken($token)
         ->getJson('/api/organisation/event/orders/detail/'.$order->id)
@@ -370,6 +400,9 @@ test('organisation can view order detail with customer payment channel and creat
         ->assertJsonPath('data.customer.name', 'Buyer Name')
         ->assertJsonPath('data.customer.email', 'buyer@example.com')
         ->assertJsonPath('data.customer.phone', '07123456789')
+        ->assertJsonPath('data.customer.user_id', $customer->id)
+        ->assertJsonPath('data.customer.orders_count', 2)
+        ->assertJsonPath('data.customer.customer_since', $customerSince->toJSON())
         ->assertJsonPath('data.created_by.id', $user->id)
         ->assertJsonPath('data.payment.provider', PaymentProviderEnum::CARD_TERMINAL->value)
         ->assertJsonPath('data.payment.reference_name', 'SumUp Door 1')

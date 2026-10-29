@@ -44,6 +44,8 @@ class OrganisationEventOrderDetailResource extends JsonResource
                 'email' => $this->customer_email,
                 'phone' => $this->customer_phone,
                 'user_id' => $this->user_id,
+                'orders_count' => (int) ($this->customer_orders_count ?? 0),
+                'customer_since' => $this->customer_since,
             ],
             'created_by' => $this->whenLoaded(
                 'creator',
