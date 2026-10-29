@@ -86,47 +86,57 @@ function createEventRefund(
     string $customerEmail = 'buyer@example.com',
     RefundStatusEnum $status = RefundStatusEnum::SUCCEEDED,
     string $refundAmount = '20.00',
+    ?Order $existingOrder = null,
 ): array {
-    $order = Order::query()->create([
-        'unique_id' => UniqueIdGenerator::generate('ORD', 12),
-        'checkout_key' => (string) Str::uuid(),
-        'status' => OrderStatusEnum::REFUNDED,
-        'subtotal' => '20.00',
-        'discount_amount' => '0.00',
-        'platform_fee_amount' => '2.00',
-        'total_amount' => '20.00',
-        'currency' => 'GBP',
-        'customer_name' => $customerName,
-        'customer_email' => $customerEmail,
-        'customer_phone' => '07123456789',
-        'paid_at' => now(),
-    ]);
+    if ($existingOrder !== null) {
+        $order = $existingOrder;
+        $payment = Payment::query()
+            ->where('order_id', $order->id)
+            ->where('status', PaymentStatusEnum::SUCCEEDED)
+            ->orderByDesc('id')
+            ->firstOrFail();
+    } else {
+        $order = Order::query()->create([
+            'unique_id' => UniqueIdGenerator::generate('ORD', 12),
+            'checkout_key' => (string) Str::uuid(),
+            'status' => OrderStatusEnum::REFUNDED,
+            'subtotal' => '20.00',
+            'discount_amount' => '0.00',
+            'platform_fee_amount' => '2.00',
+            'total_amount' => '20.00',
+            'currency' => 'GBP',
+            'customer_name' => $customerName,
+            'customer_email' => $customerEmail,
+            'customer_phone' => '07123456789',
+            'paid_at' => now(),
+        ]);
 
-    OrderItem::query()->create([
-        'order_id' => $order->id,
-        'event_id' => $event->id,
-        'organisation_id' => $organisation->id,
-        'event_ticket_id' => $ticket->id,
-        'ticket_name' => $ticket->name,
-        'quantity' => 1,
-        'unit_price' => '20.00',
-        'discount_amount' => '0.00',
-        'total_price' => '20.00',
-        'platform_fee_rate' => '10.00',
-        'platform_share_amount' => '2.00',
-        'organiser_share_amount' => '18.00',
-        'currency' => 'GBP',
-    ]);
+        OrderItem::query()->create([
+            'order_id' => $order->id,
+            'event_id' => $event->id,
+            'organisation_id' => $organisation->id,
+            'event_ticket_id' => $ticket->id,
+            'ticket_name' => $ticket->name,
+            'quantity' => 1,
+            'unit_price' => '20.00',
+            'discount_amount' => '0.00',
+            'total_price' => '20.00',
+            'platform_fee_rate' => '10.00',
+            'platform_share_amount' => '2.00',
+            'organiser_share_amount' => '18.00',
+            'currency' => 'GBP',
+        ]);
 
-    $payment = Payment::query()->create([
-        'order_id' => $order->id,
-        'provider' => PaymentProviderEnum::CASH,
-        'status' => PaymentStatusEnum::SUCCEEDED,
-        'amount' => '20.00',
-        'currency' => 'GBP',
-        'idempotency_key' => 'order_'.$order->unique_id.'_payment',
-        'paid_at' => now(),
-    ]);
+        $payment = Payment::query()->create([
+            'order_id' => $order->id,
+            'provider' => PaymentProviderEnum::CASH,
+            'status' => PaymentStatusEnum::SUCCEEDED,
+            'amount' => '20.00',
+            'currency' => 'GBP',
+            'idempotency_key' => 'order_'.$order->unique_id.'_payment',
+            'paid_at' => now(),
+        ]);
+    }
 
     $refund = Refund::query()->create([
         'unique_id' => UniqueIdGenerator::generate('REF', 12),
@@ -152,7 +162,7 @@ test('event refunds list requires authentication', function () {
     test()->getJson('/api/organisation/event/1/refunds')->assertUnauthorized();
 });
 
-test('organisation can list refunds for its event', function () {
+test('organisation can list orders that have refunds for its event', function () {
     [
         'owner' => $owner,
         'organisation' => $organisation,
@@ -161,25 +171,52 @@ test('organisation can list refunds for its event', function () {
         'token' => $token,
     ] = eventRefundsListFixture();
 
-    ['refund' => $refund, 'order' => $order] = createEventRefund(
+    ['order' => $order, 'refund' => $firstRefund] = createEventRefund(
         $organisation,
         $event,
         $ticket,
         $owner,
     );
 
-    test()->withToken($token)
+    ['refund' => $secondRefund] = createEventRefund(
+        $organisation,
+        $event,
+        $ticket,
+        $owner,
+        'Refund Buyer',
+        'buyer@example.com',
+        RefundStatusEnum::SUCCEEDED,
+        '5.00',
+        $order,
+    );
+
+    // Another order with a refund should appear as a separate list item.
+    createEventRefund(
+        $organisation,
+        $event,
+        $ticket,
+        $owner,
+        'Second Buyer',
+        'second@example.com',
+    );
+
+    $response = test()->withToken($token)
         ->getJson('/api/organisation/event/'.$event->id.'/refunds')
         ->assertOk()
         ->assertJsonPath('success', true)
         ->assertJsonPath('message', __('messages.event_refunds_list'))
-        ->assertJsonPath('data.items.0.unique_id', $refund->unique_id)
-        ->assertJsonPath('data.items.0.status', RefundStatusEnum::SUCCEEDED->value)
-        ->assertJsonPath('data.items.0.order.unique_id', $order->unique_id)
-        ->assertJsonPath('data.items.0.order.customer_name', 'Refund Buyer')
+        ->assertJsonCount(2, 'data.items')
         ->assertJsonStructure([
             'data' => [
-                'items',
+                'items' => [
+                    '*' => [
+                        'id',
+                        'unique_id',
+                        'customer_name',
+                        'total_refunded',
+                        'refunds',
+                    ],
+                ],
                 'pagination' => [
                     'per_page',
                     'next_cursor',
@@ -188,6 +225,16 @@ test('organisation can list refunds for its event', function () {
                 ],
             ],
         ]);
+
+    $orderRow = collect($response->json('data.items'))
+        ->firstWhere('unique_id', $order->unique_id);
+
+    expect($orderRow)->not->toBeNull()
+        ->and($orderRow['customer_name'])->toBe('Refund Buyer')
+        ->and($orderRow['total_refunded'])->toBe('25.00')
+        ->and($orderRow['refunds'])->toHaveCount(2)
+        ->and(collect($orderRow['refunds'])->pluck('unique_id')->all())
+        ->toContain($firstRefund->unique_id, $secondRefund->unique_id);
 });
 
 test('event refunds list can filter by status search and utc date range', function () {
@@ -236,19 +283,20 @@ test('event refunds list can filter by status search and utc date range', functi
         ->getJson('/api/organisation/event/'.$event->id.'/refunds?'.$query)
         ->assertOk()
         ->assertJsonCount(1, 'data.items')
-        ->assertJsonPath('data.items.0.unique_id', $matched->unique_id);
+        ->assertJsonPath('data.items.0.unique_id', $matchedOrder->unique_id)
+        ->assertJsonPath('data.items.0.refunds.0.unique_id', $matched->unique_id);
 
     test()->withToken($token)
         ->getJson('/api/organisation/event/'.$event->id.'/refunds?search='.urlencode('Ada Lovelace'))
         ->assertOk()
         ->assertJsonCount(1, 'data.items')
-        ->assertJsonPath('data.items.0.unique_id', $matched->unique_id);
+        ->assertJsonPath('data.items.0.unique_id', $matchedOrder->unique_id);
 
     test()->withToken($token)
         ->getJson('/api/organisation/event/'.$event->id.'/refunds?search=15.50')
         ->assertOk()
         ->assertJsonCount(1, 'data.items')
-        ->assertJsonPath('data.items.0.unique_id', $matched->unique_id);
+        ->assertJsonPath('data.items.0.unique_id', $matchedOrder->unique_id);
 });
 
 test('event refunds list returns not found for another organisations event', function () {

@@ -17,7 +17,6 @@ use App\Models\EventTicketOffer;
 use App\Models\Order;
 use App\Models\Organisation;
 use App\Models\OrganisationCustomer;
-use App\Models\Refund;
 use App\Models\User;
 use App\Models\Venue;
 use App\Services\MediaService;
@@ -676,49 +675,65 @@ class EventService extends Service
             );
         }
 
-        $paginator = Refund::query()
-            ->whereHas('order.items', function ($query) use ($event, $organisation): void {
+        $paginator = Order::query()
+            ->whereHas('items', function ($query) use ($event, $organisation): void {
                 $query->where('event_id', $event->id)
                     ->where('organisation_id', $organisation->id);
             })
-            ->when(
-                filled($status),
-                fn ($query) => $query->where('status', $status),
-            )
-            ->when(
-                $startDate !== null,
-                fn ($query) => $query->where('created_at', '>=', $startDate),
-            )
-            ->when(
-                $endDate !== null,
-                fn ($query) => $query->where('created_at', '<=', $endDate),
-            )
+            ->whereHas('refunds', function ($query) use ($status, $startDate, $endDate): void {
+                $query->when(
+                    filled($status),
+                    fn ($inner) => $inner->where('status', $status),
+                )->when(
+                    $startDate !== null,
+                    fn ($inner) => $inner->where('created_at', '>=', $startDate),
+                )->when(
+                    $endDate !== null,
+                    fn ($inner) => $inner->where('created_at', '<=', $endDate),
+                );
+            })
             ->when(
                 filled($search),
                 function ($query) use ($search): void {
                     $like = '%'.$search.'%';
 
                     $query->where(function ($inner) use ($like, $search): void {
-                        $inner->where('amount', 'like', $like)
-                            ->orWhereHas('order', function ($orderQuery) use ($like): void {
-                                $orderQuery->where('unique_id', 'like', $like)
-                                    ->orWhere('customer_name', 'like', $like);
-                            });
+                        $inner->where('unique_id', 'like', $like)
+                            ->orWhere('customer_name', 'like', $like)
+                            ->orWhere('customer_email', 'like', $like)
+                            ->orWhereHas('refunds', function ($refundQuery) use ($like, $search): void {
+                                $refundQuery->where('unique_id', 'like', $like)
+                                    ->orWhere('amount', 'like', $like)
+                                    ->orWhere('reason', 'like', $like);
 
-                        if (is_numeric($search)) {
-                            $inner->orWhere(
-                                'amount',
-                                number_format((float) $search, 2, '.', ''),
-                            );
-                        }
+                                if (is_numeric($search)) {
+                                    $refundQuery->orWhere(
+                                        'amount',
+                                        number_format((float) $search, 2, '.', ''),
+                                    );
+                                }
+                            });
                     });
                 },
             )
             ->with([
-                'order:id,unique_id,status,customer_name,customer_email,customer_phone,total_amount,currency',
-                'payment:id,provider,amount,currency,payment_intent_id',
-                'requester:id,first_name,last_name,email',
-                'approver:id,first_name,last_name,email',
+                'refunds' => function ($query) use ($status, $startDate, $endDate): void {
+                    $query->when(
+                        filled($status),
+                        fn ($inner) => $inner->where('status', $status),
+                    )->when(
+                        $startDate !== null,
+                        fn ($inner) => $inner->where('created_at', '>=', $startDate),
+                    )->when(
+                        $endDate !== null,
+                        fn ($inner) => $inner->where('created_at', '<=', $endDate),
+                    )->orderByDesc('id')
+                        ->with([
+                            'payment:id,provider,amount,currency,payment_intent_id',
+                            'requester:id,first_name,last_name,email',
+                            'approver:id,first_name,last_name,email',
+                        ]);
+                },
             ])
             ->orderByDesc('id')
             ->cursorPaginate($perPage, ['*'], 'cursor', $filters['cursor'] ?? null);

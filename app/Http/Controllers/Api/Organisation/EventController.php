@@ -17,7 +17,7 @@ use App\Http\Resources\EventTicketOfferResource;
 use App\Http\Resources\EventTicketResource;
 use App\Http\Resources\MyOrderResource;
 use App\Http\Resources\OrganisationEventOrderDetailResource;
-use App\Http\Resources\OrganisationRefundResource;
+use App\Http\Resources\OrganisationEventRefundOrderResource;
 use App\Services\Organisation\EventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -206,7 +206,7 @@ class EventController extends Controller
 
             return $this->successPaginated(
                 __('messages.event_refunds_list'),
-                OrganisationRefundResource::collection($paginator->items()),
+                OrganisationEventRefundOrderResource::collection($paginator->items()),
                 $paginator,
             );
         } catch (Throwable $exception) {
