@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Enum\CurrencyEnum;
+use App\Enum\RefundStatusEnum;
 use App\Models\Order;
 use App\Support\MoneyFormatter;
 use Illuminate\Http\Request;
@@ -43,6 +44,10 @@ class OrganisationEventOrderDetailResource extends JsonResource
                 'name' => $this->customer_name,
                 'email' => $this->customer_email,
                 'phone' => $this->customer_phone,
+                'country_code' => $this->whenLoaded(
+                    'user',
+                    fn () => $this->user?->country_code,
+                ),
                 'user_id' => $this->user_id,
                 'orders_count' => (int) ($this->customer_orders_count ?? 0),
                 'customer_since' => $this->customer_since,
@@ -76,6 +81,33 @@ class OrganisationEventOrderDetailResource extends JsonResource
                     'notes' => $payment->notes,
                     'paid_at' => $payment->paid_at,
                 ],
+            'refunds' => $this->whenLoaded(
+                'refunds',
+                fn () => OrganisationRefundResource::collection($this->refunds),
+            ),
+            'total_refunded' => $this->whenLoaded(
+                'refunds',
+                function (): string {
+                    $total = $this->refunds
+                        ->where('status', RefundStatusEnum::SUCCEEDED)
+                        ->sum(fn ($refund): float => (float) $refund->amount);
+
+                    return number_format((float) $total, 2, '.', '');
+                },
+            ),
+            'formatted_total_refunded' => $this->whenLoaded(
+                'refunds',
+                function () use ($currency): string {
+                    $total = $this->refunds
+                        ->where('status', RefundStatusEnum::SUCCEEDED)
+                        ->sum(fn ($refund): float => (float) $refund->amount);
+
+                    return MoneyFormatter::format(
+                        number_format((float) $total, 2, '.', ''),
+                        $currency,
+                    );
+                },
+            ),
             'items' => $this->whenLoaded(
                 'items',
                 fn () => MyOrderItemResource::collection($this->items),

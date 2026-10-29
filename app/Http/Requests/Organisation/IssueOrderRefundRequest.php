@@ -19,7 +19,7 @@ class IssueOrderRefundRequest extends FormRequest
     {
         return [
             'amount' => ['required', 'numeric', 'gt:0'],
-            'reason' => ['nullable', 'string', 'max:100'],
+            'reason' => ['nullable', 'string', 'max:500'],
         ];
     }
 

@@ -7,6 +7,7 @@ use App\Enum\OrderSalesChannelEnum;
 use App\Enum\OrderStatusEnum;
 use App\Enum\PaymentProviderEnum;
 use App\Enum\PaymentStatusEnum;
+use App\Enum\RefundStatusEnum;
 use App\Models\Event;
 use App\Models\EventTicket;
 use App\Models\IssuedTicket;
@@ -16,6 +17,7 @@ use App\Models\Organisation;
 use App\Models\OrganisationCustomer;
 use App\Models\OrganiserStaff;
 use App\Models\Payment;
+use App\Models\Refund;
 use App\Models\User;
 use App\Support\UniqueIdGenerator;
 use Illuminate\Support\Carbon;
@@ -353,6 +355,7 @@ test('organisation can view order detail with customer payment channel and creat
 
     $customer = User::factory()->create([
         'email' => 'buyer@example.com',
+        'country_code' => '+44',
     ]);
     $customerSince = Carbon::parse('2026-09-01 10:00:00');
 
@@ -373,7 +376,7 @@ test('organisation can view order detail with customer payment channel and creat
         ],
     );
 
-    ['order' => $order, 'scan_code' => $scanCode] = createPaidOrderForEvent(
+    ['order' => $order, 'scan_code' => $scanCode, 'payment' => $payment] = createPaidOrderForEvent(
         $organisation,
         $event,
         $ticket,
@@ -390,6 +393,20 @@ test('organisation can view order detail with customer payment channel and creat
 
     expect($firstOrder->id)->not->toBe($order->id);
 
+    $refund = Refund::query()->create([
+        'unique_id' => UniqueIdGenerator::generate('REF', 12),
+        'order_id' => $order->id,
+        'payment_id' => $payment->id,
+        'requested_by' => $user->id,
+        'approved_by' => $user->id,
+        'stripe_refund_id' => null,
+        'amount' => '10.00',
+        'currency' => 'GBP',
+        'reason' => 'Customer request',
+        'status' => RefundStatusEnum::SUCCEEDED,
+        'refunded_at' => now(),
+    ]);
+
     test()->withToken($token)
         ->getJson('/api/organisation/event/orders/detail/'.$order->id)
         ->assertOk()
@@ -400,6 +417,7 @@ test('organisation can view order detail with customer payment channel and creat
         ->assertJsonPath('data.customer.name', 'Buyer Name')
         ->assertJsonPath('data.customer.email', 'buyer@example.com')
         ->assertJsonPath('data.customer.phone', '07123456789')
+        ->assertJsonPath('data.customer.country_code', '+44')
         ->assertJsonPath('data.customer.user_id', $customer->id)
         ->assertJsonPath('data.customer.orders_count', 2)
         ->assertJsonPath('data.customer.customer_since', $customerSince->toJSON())
@@ -407,6 +425,13 @@ test('organisation can view order detail with customer payment channel and creat
         ->assertJsonPath('data.payment.provider', PaymentProviderEnum::CARD_TERMINAL->value)
         ->assertJsonPath('data.payment.reference_name', 'SumUp Door 1')
         ->assertJsonPath('data.payment.external_reference_id', 'TXN-849201')
+        ->assertJsonPath('data.refunds.0.id', $refund->id)
+        ->assertJsonPath('data.refunds.0.unique_id', $refund->unique_id)
+        ->assertJsonPath('data.refunds.0.amount', '10.00')
+        ->assertJsonPath('data.refunds.0.status', RefundStatusEnum::SUCCEEDED->value)
+        ->assertJsonPath('data.refunds.0.reason', 'Customer request')
+        ->assertJsonPath('data.refunds.0.requester.id', $user->id)
+        ->assertJsonPath('data.total_refunded', '10.00')
         ->assertJsonPath('data.items.0.ticket_name', 'General Admission')
         ->assertJsonPath('data.items.0.issued_tickets.0.code', $scanCode);
 });

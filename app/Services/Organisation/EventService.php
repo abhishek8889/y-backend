@@ -745,8 +745,16 @@ class EventService extends Service
                 $query->where('organisation_id', $organisation->id);
             })
             ->with([
+                'user:id,country_code',
                 'creator:id,first_name,last_name,email',
                 'latestPayment',
+                'refunds' => function ($query): void {
+                    $query->orderByDesc('id')
+                        ->with([
+                            'requester:id,first_name,last_name,email',
+                            'approver:id,first_name,last_name,email',
+                        ]);
+                },
                 'items' => function ($query) use ($organisation): void {
                     $query->where('organisation_id', $organisation->id)
                         ->with([
