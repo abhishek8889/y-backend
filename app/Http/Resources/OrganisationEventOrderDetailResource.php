@@ -61,6 +61,8 @@ class OrganisationEventOrderDetailResource extends JsonResource
                 : [
                     'provider' => $payment->provider?->value ?? $payment->provider,
                     'payment_method' => $payment->payment_method,
+                    'card_brand' => $payment->card_brand,
+                    'card_last4' => $payment->card_last4,
                     'status' => $payment->status?->value ?? $payment->status,
                     'amount' => (string) $payment->amount,
                     'currency' => $payment->currency,

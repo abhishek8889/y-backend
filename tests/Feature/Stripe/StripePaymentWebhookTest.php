@@ -177,7 +177,15 @@ test('marks payment and order paid on payment_intent.succeeded', function () {
                 'id' => 'pi_test_webhook_1',
                 'object' => 'payment_intent',
                 'status' => 'succeeded',
-                'latest_charge' => 'ch_test_123',
+                'latest_charge' => [
+                    'id' => 'ch_test_123',
+                    'payment_method_details' => [
+                        'card' => [
+                            'brand' => 'visa',
+                            'last4' => '4242',
+                        ],
+                    ],
+                ],
                 'payment_method' => 'pm_card_visa',
                 'amount' => 4000,
                 'currency' => 'gbp',
@@ -196,6 +204,8 @@ test('marks payment and order paid on payment_intent.succeeded', function () {
     expect($payment->status)->toBe(PaymentStatusEnum::SUCCEEDED)
         ->and($payment->charge_id)->toBe('ch_test_123')
         ->and($payment->payment_method)->toBe('pm_card_visa')
+        ->and($payment->card_brand)->toBe('visa')
+        ->and($payment->card_last4)->toBe('4242')
         ->and($payment->paid_at)->not->toBeNull()
         ->and($order->status)->toBe(OrderStatusEnum::PAID)
         ->and($order->paid_at)->not->toBeNull();

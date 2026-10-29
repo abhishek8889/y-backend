@@ -17,11 +17,13 @@ use App\Services\IssuedTicketService;
 use App\Services\OrderConfirmationMailService;
 use App\Services\OrganiserBalanceService;
 use App\Services\RefundSettlementService;
+use App\Services\Stripe\StripeClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\StripeObject;
 use Stripe\Webhook;
@@ -173,6 +175,8 @@ class StripePaymentWebhook extends Controller
             $payment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
             $order = Order::query()->whereKey($payment->order_id)->lockForUpdate()->firstOrFail();
 
+            $cardDetails = $this->resolveCardDetails($paymentIntent);
+
             if (! ($payment->status === PaymentStatusEnum::SUCCEEDED
                 && $order->status === OrderStatusEnum::PAID)) {
                 $paidAt = Carbon::now();
@@ -181,6 +185,8 @@ class StripePaymentWebhook extends Controller
                     'status' => PaymentStatusEnum::SUCCEEDED,
                     'charge_id' => $this->resolveChargeId($paymentIntent),
                     'payment_method' => $this->resolvePaymentMethod($paymentIntent),
+                    'card_brand' => $cardDetails['card_brand'] ?? $payment->card_brand,
+                    'card_last4' => $cardDetails['card_last4'] ?? $payment->card_last4,
                     'failure_reason' => null,
                     'paid_at' => $paidAt,
                 ]);
@@ -194,6 +200,11 @@ class StripePaymentWebhook extends Controller
                 }
 
                 $this->organiserBalances->creditReservedEarnings($order);
+            } elseif ($payment->card_last4 === null && ($cardDetails['card_last4'] ?? null) !== null) {
+                $payment->update([
+                    'card_brand' => $cardDetails['card_brand'] ?? $payment->card_brand,
+                    'card_last4' => $cardDetails['card_last4'],
+                ]);
             }
 
             $order = $order->fresh() ?? $order;
@@ -519,6 +530,117 @@ class StripePaymentWebhook extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Card brand/last4 from expanded PaymentIntent fields, or by retrieving the charge.
+     *
+     * @param  array<string, mixed>  $paymentIntent
+     * @return array{card_brand: string|null, card_last4: string|null}
+     */
+    private function resolveCardDetails(array $paymentIntent): array
+    {
+        $paymentMethod = $paymentIntent['payment_method'] ?? null;
+
+        if (is_array($paymentMethod)) {
+            $fromPaymentMethod = $this->cardDetailsFromCardArray($paymentMethod['card'] ?? null);
+
+            if ($fromPaymentMethod['card_last4'] !== null) {
+                return $fromPaymentMethod;
+            }
+        }
+
+        $latestCharge = $paymentIntent['latest_charge'] ?? null;
+
+        if (is_array($latestCharge)) {
+            $fromCharge = $this->cardDetailsFromCharge($latestCharge);
+
+            if ($fromCharge['card_last4'] !== null) {
+                return $fromCharge;
+            }
+        }
+
+        $firstCharge = $paymentIntent['charges']['data'][0] ?? null;
+
+        if (is_array($firstCharge)) {
+            $fromChargeList = $this->cardDetailsFromCharge($firstCharge);
+
+            if ($fromChargeList['card_last4'] !== null) {
+                return $fromChargeList;
+            }
+        }
+
+        $chargeId = $this->resolveChargeId($paymentIntent);
+
+        if ($chargeId === null) {
+            return [
+                'card_brand' => null,
+                'card_last4' => null,
+            ];
+        }
+
+        try {
+            $charge = StripeClient::get()->charges->retrieve($chargeId);
+
+            return $this->cardDetailsFromCharge($this->toArray($charge));
+        } catch (ApiErrorException|ServiceException|Throwable $exception) {
+            Log::channel('stripe_webhook')->warning('Unable to resolve card details from charge', [
+                'charge_id' => $chargeId,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return [
+                'card_brand' => null,
+                'card_last4' => null,
+            ];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $charge
+     * @return array{card_brand: string|null, card_last4: string|null}
+     */
+    private function cardDetailsFromCharge(array $charge): array
+    {
+        $details = $charge['payment_method_details'] ?? null;
+
+        if (! is_array($details)) {
+            return [
+                'card_brand' => null,
+                'card_last4' => null,
+            ];
+        }
+
+        return $this->cardDetailsFromCardArray($details['card'] ?? null);
+    }
+
+    /**
+     * @return array{card_brand: string|null, card_last4: string|null}
+     */
+    private function cardDetailsFromCardArray(mixed $card): array
+    {
+        if (! is_array($card)) {
+            return [
+                'card_brand' => null,
+                'card_last4' => null,
+            ];
+        }
+
+        $brand = filled($card['brand'] ?? null)
+            ? strtolower((string) $card['brand'])
+            : null;
+        $last4 = filled($card['last4'] ?? null)
+            ? (string) $card['last4']
+            : null;
+
+        if ($last4 !== null && ! preg_match('/^\d{4}$/', $last4)) {
+            $last4 = null;
+        }
+
+        return [
+            'card_brand' => $brand,
+            'card_last4' => $last4,
+        ];
     }
 
     /**

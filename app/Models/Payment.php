@@ -21,6 +21,8 @@ use Illuminate\Support\Carbon;
  * @property string $amount
  * @property string $currency
  * @property string|null $payment_method
+ * @property string|null $card_brand
+ * @property string|null $card_last4
  * @property string|null $reference_name
  * @property string|null $external_reference_id
  * @property string $idempotency_key
@@ -40,6 +42,8 @@ use Illuminate\Support\Carbon;
     'amount',
     'currency',
     'payment_method',
+    'card_brand',
+    'card_last4',
     'reference_name',
     'external_reference_id',
     'idempotency_key',
