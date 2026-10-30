@@ -65,5 +65,6 @@ jobs:
           composer install --no-interaction --prefer-dist --optimize-autoloader
           php artisan migrate --force
           php artisan db:seed --force
+          php artisan db:seed --class="EventCategorySeeder"
           php artisan optimize
           EOF

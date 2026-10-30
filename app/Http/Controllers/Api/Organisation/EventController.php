@@ -438,19 +438,12 @@ class EventController extends Controller
     }
 
     /**
-     * List system event categories (organisation_id null) plus the authenticated organisation's categories.
+     * Public list of system event categories (no authentication required).
      */
-    public function getEventCategoryList(Request $request, EventService $event): JsonResponse
+    public function getEventCategoryList(EventService $event): JsonResponse
     {
         try {
-            $user = $request->user();
-            $organisationId = $user?->organisationLoginContext()['organisation_id']
-                ?? $user?->loginContext()['organisation_id']
-                ?? null;
-
-            $response = $event->getEventCategoryList(
-                is_int($organisationId) ? $organisationId : null,
-            );
+            $response = $event->getEventCategoryList();
 
             return $this->success(
                 __('messages.event_categories_list'),

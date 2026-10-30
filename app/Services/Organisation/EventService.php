@@ -1196,7 +1196,7 @@ class EventService extends Service
                     $query->orWhere('organisation_id', $organisationId);
                 }
             })
-            ->orderBy('name')
+            ->orderBy('id')
             ->get();
 
         return [

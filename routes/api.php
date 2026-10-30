@@ -75,6 +75,9 @@ Route::prefix('public')->group(function () {
         ->middleware('throttle:login');
 });
 
+// ################## Public Event Option Lists ##################
+Route::get('/event/categories', [EventController::class, 'getEventCategoryList']);
+
 Route::middleware('jwt')->group(function () {
     Route::get('/user', function (Request $request) {
         return ApiResponse::success(data: UserResource::make($request->user()));
@@ -85,8 +88,6 @@ Route::middleware('jwt')->group(function () {
 
     Route::get('/profile/details', [ProfileController::class, 'details'])
         ->name('profile.details');
-
-    Route::get('/event/categories', [EventController::class, 'getEventCategoryList']);
 
     Route::prefix('media')->group(function () {
         Route::post('/upload', [MediaController::class, 'upload'])->name('media.upload');
