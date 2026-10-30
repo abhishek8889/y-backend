@@ -43,6 +43,7 @@ class OrganiserRegisterRequest extends FormRequest
             'org_country_code' => ['required', 'string', 'size:2'],
             'org_phone' => ['nullable', 'string', 'max:30'],
             'org_country' => ['nullable', 'string', 'max:100'],
+            'org_timezone' => ['required', 'timezone:all'],
             'org_city' => ['nullable', 'string', 'max:255'],
             'org_address1' => ['nullable', 'string', 'max:255'],
             'org_address2' => ['nullable', 'string', 'max:255'],
@@ -99,6 +100,8 @@ class OrganiserRegisterRequest extends FormRequest
             'org_country_code.required' => __('validation.required'),
             'org_country_code.string' => __('validation.string'),
             'org_country_code.size' => __('validation.size.string'),
+            'org_timezone.required' => __('validation.required'),
+            'org_timezone.timezone' => __('validation.timezone'),
         ];
     }
 
@@ -120,6 +123,7 @@ class OrganiserRegisterRequest extends FormRequest
             'org_email' => 'organisation email',
             'org_country_calling_code' => __('validation.attributes.org_country_calling_code'),
             'org_country_code' => __('validation.attributes.org_country_code'),
+            'org_timezone' => 'organisation timezone',
             'org_phone' => 'organisation phone',
         ];
     }

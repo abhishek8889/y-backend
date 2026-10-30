@@ -3,11 +3,13 @@
 use App\Enum\EventStatusEnum;
 use App\Enum\EventTicketStatusEnum;
 use App\Enum\OrderStatusEnum;
+use App\Enum\StatusEnum;
 use App\Models\Event;
 use App\Models\EventTicket;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Organisation;
+use App\Models\OrganisationCustomer;
 use App\Models\OrganiserStaff;
 use App\Models\User;
 use App\Support\UniqueIdGenerator;
@@ -139,8 +141,16 @@ test('organisation can view customer details for a buyer with orders', function 
         'country' => 'GB',
     ]);
 
-    createPaidOrderForCustomer($organisation, $event, $ticket, $customer, '20.00', 2);
-    createPaidOrderForCustomer($organisation, $event, $ticket, $customer, '15.00', 1);
+    ['order' => $firstOrder] = createPaidOrderForCustomer($organisation, $event, $ticket, $customer, '20.00', 2);
+    ['order' => $lastOrder] = createPaidOrderForCustomer($organisation, $event, $ticket, $customer, '15.00', 1);
+
+    OrganisationCustomer::factory()->create([
+        'organisation_id' => $organisation->id,
+        'user_id' => $customer->id,
+        'first_order_id' => $firstOrder->id,
+        'last_order_id' => $lastOrder->id,
+        'status' => StatusEnum::ACTIVE,
+    ]);
 
     test()->withToken($token)
         ->getJson('/api/organisation/customer/info/'.$customer->id)

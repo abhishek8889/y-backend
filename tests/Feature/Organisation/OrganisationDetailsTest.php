@@ -13,6 +13,7 @@ test('authenticated organisation owner can fetch their organisation details', fu
         'owner_id' => $user->id,
         'name' => 'Ada Events',
         'email' => 'org@example.com',
+        'timezone' => 'Europe/London',
         'approve_status' => false,
     ]);
     OrganiserStaff::factory()->for($organisation)->for($user)->create();
@@ -30,6 +31,7 @@ test('authenticated organisation owner can fetch their organisation details', fu
         ->assertJsonPath('data.id', $organisation->id)
         ->assertJsonPath('data.name', 'Ada Events')
         ->assertJsonPath('data.email', 'org@example.com')
+        ->assertJsonPath('data.timezone', 'Europe/London')
         ->assertJsonPath('data.approve_status', false)
         ->assertJsonPath('data.stripe_connect_account_created', false);
 });

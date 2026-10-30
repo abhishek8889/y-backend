@@ -117,6 +117,7 @@ class AuthService extends Service
      *     roles: list<string>,
      *     organisation_id: int|null,
      *     permissions: array<string, list<string>>,
+     *     organisation_timezone?: string|null,
      *     organisation_approve_status?: bool,
      *     stripe_connect_account_created?: bool,
      *     connect_onboarding_status?: string
@@ -139,8 +140,12 @@ class AuthService extends Service
         if ($organisationId !== null) {
             $organisation = Organisation::query()->find($organisationId);
 
-            if ($organisation !== null && $user->owns($organisation)) {
-                $payload['organisation_approve_status'] = (bool) $organisation->approve_status;
+            if ($organisation !== null) {
+                $payload['organisation_timezone'] = $organisation->timezone;
+
+                if ($user->owns($organisation)) {
+                    $payload['organisation_approve_status'] = (bool) $organisation->approve_status;
+                }
             }
 
             if ($isOrganisationOwner) {
@@ -189,6 +194,7 @@ class AuthService extends Service
                 'org_country_code' => $data['org_country_code'],
                 'org_phone' => $data['org_phone'] ?? null,
                 'org_country' => $data['org_country'] ?? null,
+                'org_timezone' => $data['org_timezone'] ?? null,
                 'org_city' => $data['org_city'] ?? null,
                 'org_address1' => $data['org_address1'] ?? null,
                 'org_address2' => $data['org_address2'] ?? null,
@@ -321,6 +327,7 @@ class AuthService extends Service
                 'country_code' => $registration->org_country_code,
                 'phone' => $registration->org_phone ?? $registration->phone,
                 'country' => $registration->org_country ?? $registration->country,
+                'timezone' => $registration->org_timezone,
                 'city' => $registration->org_city,
                 'address1' => $registration->org_address1,
                 'address2' => $registration->org_address2,

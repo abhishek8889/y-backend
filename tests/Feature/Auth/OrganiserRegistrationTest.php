@@ -23,6 +23,7 @@ test('organiser registration sends an otp email from the platform', function () 
         'otp' => 'ABCDEF',
         'org_name' => 'Analytical Engines Ltd',
         'org_email' => 'hello@engines.example',
+        'org_timezone' => 'Europe/London',
         'org_city' => 'London',
     ]);
 
@@ -76,6 +77,7 @@ function organiserRegistrationPayload(): array
         'org_country_code' => 'US',
         'org_phone' => '5559876543',
         'org_country' => 'US',
+        'org_timezone' => 'Europe/London',
         'org_city' => 'London',
         'org_website' => 'https://engines.example',
     ];

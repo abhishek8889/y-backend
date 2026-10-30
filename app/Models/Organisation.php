@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $country_code
  * @property string|null $phone
  * @property string|null $country
+ * @property string|null $timezone
  * @property string|null $city
  * @property string|null $address1
  * @property string|null $address2
@@ -51,6 +52,7 @@ use Illuminate\Support\Carbon;
     'country_code',
     'phone',
     'country',
+    'timezone',
     'city',
     'address1',
     'address2',

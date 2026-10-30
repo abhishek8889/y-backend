@@ -29,6 +29,7 @@ class OrganisationFactory extends Factory
             'country_code' => 'GB',
             'phone' => fake()->numerify('7#########'),
             'country' => 'United Kingdom',
+            'timezone' => 'Europe/London',
             'complete_status' => false,
             'approve_status' => false,
         ];

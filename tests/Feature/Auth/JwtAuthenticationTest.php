@@ -163,6 +163,7 @@ test('about-me returns authenticated user scope roles and permissions', function
     $owner = User::factory()->create();
     $organisation = Organisation::factory()->for($owner, 'owner')->create([
         'approve_status' => true,
+        'timezone' => 'Europe/London',
     ]);
     $staff = OrganiserStaff::factory()->for($organisation)->for($owner)->create();
     $role = Role::factory()->for($organisation)->create([
@@ -184,6 +185,7 @@ test('about-me returns authenticated user scope roles and permissions', function
         ->assertJsonPath('data.user.id', $owner->id)
         ->assertJsonPath('data.user.scope', PermissionScopeEnum::ORGANISATION->value)
         ->assertJsonPath('data.user.organisation_id', $organisation->id)
+        ->assertJsonPath('data.user.organisation_timezone', 'Europe/London')
         ->assertJsonPath('data.user.roles', [RoleEnum::OWNER->value])
         ->assertJsonPath('data.user.organisation_approve_status', true)
         ->assertJsonPath('data.user.stripe_connect_account_created', false)
@@ -200,6 +202,7 @@ test('about-me returns authenticated user scope roles and permissions', function
                     'scope',
                     'roles',
                     'organisation_id',
+                    'organisation_timezone',
                     'organisation_approve_status',
                     'stripe_connect_account_created',
                     'connect_onboarding_status',

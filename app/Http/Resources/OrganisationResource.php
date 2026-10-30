@@ -26,6 +26,7 @@ class OrganisationResource extends JsonResource
             'country_code' => $this->country_code,
             'phone' => $this->phone,
             'country' => $this->country,
+            'timezone' => $this->timezone,
             'city' => $this->city,
             'address1' => $this->address1,
             'address2' => $this->address2,

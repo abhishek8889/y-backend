@@ -192,7 +192,16 @@ Route::middleware('jwt')->group(function () {
 
         // ########### Customer Routes ###########
         Route::prefix('customer')->group(function () {
+            Route::get('/list', [CustomerController::class, 'list'])
+                ->middleware('organisation.permission:org_customers.read');
             Route::get('/info/{customer_id}', [CustomerController::class, 'info'])
+                ->middleware('organisation.permission:org_customers.read');
+            Route::get('/{customer_id}/overview', [CustomerController::class, 'overview'])
+                ->middleware('organisation.permission:org_customers.read');
+            Route::get('/{customer_id}/orders', [CustomerController::class, 'listOrders'])
+                ->middleware('organisation.permission:org_customers.read');
+            // ##### Customer Products #########
+            Route::get('/{customer_id}/products', [CustomerController::class, 'productList'])
                 ->middleware('organisation.permission:org_customers.read');
         });
 
