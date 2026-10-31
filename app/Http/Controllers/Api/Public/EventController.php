@@ -29,6 +29,9 @@ class EventController extends Controller
                 'event_category_id' => $request->filled('event_category_id')
                     ? $request->integer('event_category_id')
                     : null,
+                'event_category_slug' => $request->filled('event_category_slug')
+                    ? $request->string('event_category_slug')->toString()
+                    : null,
                 'search' => $request->filled('search')
                     ? $request->string('search')->toString()
                     : null,

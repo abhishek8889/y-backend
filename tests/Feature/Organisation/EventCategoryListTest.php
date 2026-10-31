@@ -11,10 +11,12 @@ test('event categories is publicly available without auth', function () {
     EventCategory::query()->create([
         'organisation_id' => null,
         'name' => 'Live Music',
+        'slug' => 'live-music',
     ]);
     EventCategory::query()->create([
         'organisation_id' => $organisation->id,
         'name' => 'Esports Night',
+        'slug' => 'esports-night',
     ]);
 
     $response = test()->getJson('/api/event/categories')
@@ -22,10 +24,11 @@ test('event categories is publicly available without auth', function () {
         ->assertJsonPath('success', true)
         ->assertJsonPath('message', __('messages.event_categories_list'));
 
-    $names = collect($response->json('data'))->pluck('name')->all();
+    $items = collect($response->json('data'));
 
-    expect($names)->toContain('Live Music')
-        ->and($names)->not->toContain('Esports Night');
+    expect($items->pluck('name')->all())->toContain('Live Music')
+        ->and($items->pluck('name')->all())->not->toContain('Esports Night')
+        ->and($items->firstWhere('name', 'Live Music')['slug'] ?? null)->toBe('live-music');
 });
 
 test('event categories only returns system categories', function () {
@@ -39,14 +42,17 @@ test('event categories only returns system categories', function () {
     EventCategory::query()->create([
         'organisation_id' => null,
         'name' => 'Live Music',
+        'slug' => 'live-music',
     ]);
     EventCategory::query()->create([
         'organisation_id' => $organisation->id,
         'name' => 'Esports Night',
+        'slug' => 'esports-night',
     ]);
     EventCategory::query()->create([
         'organisation_id' => $otherOrganisation->id,
         'name' => 'Other Org Only',
+        'slug' => 'other-org-only',
     ]);
 
     $response = test()->getJson('/api/event/categories')

@@ -226,6 +226,7 @@ return [
     'media_deleted' => 'Media deleted successfully.',
     'media_upload_failed' => 'Unable to upload media.',
     'media_move_failed' => 'Unable to move media file.',
+    'media_copy_failed' => 'Unable to copy media file.',
     'media_not_found' => 'Media file not found.',
     'media_path_forbidden' => 'You are not allowed to access this media path.',
     'media_driver_not_implemented' => 'Media storage driver ":driver" is not implemented yet.',

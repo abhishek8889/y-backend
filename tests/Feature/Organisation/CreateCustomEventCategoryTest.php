@@ -26,11 +26,13 @@ test('organisation can create a custom event category', function () {
         ->assertJsonPath('success', true)
         ->assertJsonPath('message', __('messages.event_category_created'))
         ->assertJsonPath('data.name', 'Esports Night')
+        ->assertJsonPath('data.slug', 'esports-night')
         ->assertJsonPath('data.organisation_id', $organisation->id);
 
     expect(EventCategory::query()
         ->where('organisation_id', $organisation->id)
         ->where('name', 'Esports Night')
+        ->where('slug', 'esports-night')
         ->exists())->toBeTrue();
 });
 
@@ -45,6 +47,7 @@ test('custom event category rejects duplicate names for the same organisation', 
     EventCategory::query()->create([
         'organisation_id' => $organisation->id,
         'name' => 'Local Festival',
+        'slug' => 'local-festival',
     ]);
 
     $token = test()->postJson('/api/organisation/login', [
@@ -71,6 +74,7 @@ test('custom event category rejects names that match system categories', functio
     EventCategory::query()->create([
         'organisation_id' => null,
         'name' => 'Live Music',
+        'slug' => 'live-music',
     ]);
 
     $token = test()->postJson('/api/organisation/login', [

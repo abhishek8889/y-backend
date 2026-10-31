@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\EventCategory;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class EventCategorySeeder extends Seeder
 {
@@ -28,9 +29,14 @@ class EventCategorySeeder extends Seeder
         ];
 
         foreach ($categories as $name) {
-            EventCategory::query()->firstOrCreate(
+            $slug = Str::slug($name);
+
+            EventCategory::query()->updateOrCreate(
                 [
                     'organisation_id' => null,
+                    'slug' => $slug,
+                ],
+                [
                     'name' => $name,
                 ],
             );

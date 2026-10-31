@@ -13,9 +13,12 @@ use App\Models\OrganiserStaff;
 use App\Models\User;
 use App\Support\UniqueIdGenerator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 test('organisation users can duplicate an event with tickets and draft offers', function () {
     Carbon::setTestNow(Carbon::parse('2026-10-28 12:00:00'));
+    config(['media.driver' => 'local', 'media.local_disk' => 'public']);
+    Storage::fake('public');
 
     $user = User::factory()->create();
     $organisation = Organisation::factory()->create([
@@ -39,11 +42,14 @@ test('organisation users can duplicate an event with tickets and draft offers', 
         'updated_by' => $user->id,
     ]);
 
+    $sourceBannerPath = 'events/'.$source->id.'/banner.jpg';
+    Storage::disk('public')->put($sourceBannerPath, 'source-banner');
+
     EventImage::query()->create([
         'event_id' => $source->id,
         'type' => 'banner',
         'media_type' => MediaTypeEnum::IMAGE,
-        'path' => 'events/'.$source->id.'/banner.jpg',
+        'path' => $sourceBannerPath,
         'alt_text' => 'Banner',
         'sort_order' => 0,
     ]);
@@ -132,10 +138,21 @@ test('organisation users can duplicate an event with tickets and draft offers', 
         ->and(Event::query()->where('organisation_id', $organisation->id)->count())->toBe(2);
 
     $duplicated = Event::query()->with(['images', 'tickets.offers'])->findOrFail($duplicatedId);
+    $duplicatedBannerPath = $duplicated->images->first()?->path;
 
     expect($duplicated->images)->toHaveCount(1)
-        ->and($duplicated->images->first()->path)->toBe('events/'.$source->id.'/banner.jpg')
+        ->and($duplicatedBannerPath)->not->toBe($sourceBannerPath)
+        ->and($duplicatedBannerPath)->toStartWith('events/'.$duplicatedId.'/')
+        ->and(Storage::disk('public')->exists($sourceBannerPath))->toBeTrue()
+        ->and(Storage::disk('public')->exists((string) $duplicatedBannerPath))->toBeTrue()
+        ->and(Storage::disk('public')->get((string) $duplicatedBannerPath))->toBe('source-banner')
         ->and($duplicated->tickets)->toHaveCount(2);
+
+    Storage::disk('public')->delete((string) $duplicatedBannerPath);
+    $duplicated->images()->delete();
+
+    expect(Storage::disk('public')->exists($sourceBannerPath))->toBeTrue()
+        ->and(EventImage::query()->where('event_id', $source->id)->where('path', $sourceBannerPath)->exists())->toBeTrue();
 
     $ga = $duplicated->tickets->firstWhere('name', 'General Admission');
     $vip = $duplicated->tickets->firstWhere('name', 'VIP');

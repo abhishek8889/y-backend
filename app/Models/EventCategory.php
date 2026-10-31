@@ -12,12 +12,14 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int|null $organisation_id
  * @property string $name
+ * @property string $slug
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
 #[Fillable([
     'organisation_id',
     'name',
+    'slug',
 ])]
 class EventCategory extends Model
 {

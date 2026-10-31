@@ -20,6 +20,7 @@ class EventCategoryResource extends JsonResource
             'id' => $this->id,
             'organisation_id' => $this->organisation_id,
             'name' => $this->name,
+            'slug' => $this->slug,
         ];
     }
 }

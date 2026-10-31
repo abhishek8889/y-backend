@@ -173,10 +173,18 @@ class EventService extends Service
                 ]);
 
                 foreach ($source->images as $image) {
+                    $sourcePath = filled($image->path) ? ltrim((string) $image->path, '/') : '';
+
+                    if ($sourcePath === '') {
+                        continue;
+                    }
+
+                    $copied = $this->media->copyStoredTo($sourcePath, 'events/'.$event->id);
+
                     $event->images()->create([
                         'type' => $image->type,
-                        'media_type' => $image->media_type,
-                        'path' => $image->path,
+                        'media_type' => $image->media_type ?? MediaTypeEnum::fromPath($copied['path']),
+                        'path' => $copied['path'],
                         'alt_text' => $image->alt_text,
                         'sort_order' => $image->sort_order,
                     ]);
@@ -1240,11 +1248,31 @@ class EventService extends Service
         $category = EventCategory::query()->create([
             'organisation_id' => $organisation->id,
             'name' => $name,
+            'slug' => $this->generateUniqueEventCategorySlug($name),
         ]);
 
         return [
             'category' => $category,
         ];
+    }
+
+    private function generateUniqueEventCategorySlug(string $name): string
+    {
+        $base = Str::slug($name);
+
+        if ($base === '') {
+            $base = 'category';
+        }
+
+        $slug = $base;
+        $suffix = 2;
+
+        while (EventCategory::query()->where('slug', $slug)->exists()) {
+            $slug = $base.'-'.$suffix;
+            $suffix++;
+        }
+
+        return $slug;
     }
 
     private function assertCanPublish(Event $event): void

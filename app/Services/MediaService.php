@@ -153,6 +153,37 @@ class MediaService extends Service
         };
     }
 
+    /**
+     * Copy a permanent stored file into a new directory (independent path for duplicates).
+     *
+     * @return array{path: string, url: string}
+     */
+    public function copyStoredTo(string $sourcePath, string $destinationDirectory): array
+    {
+        $sourcePath = ltrim($sourcePath, '/');
+        $destinationDirectory = trim($destinationDirectory, '/');
+
+        if ($sourcePath === '' || $destinationDirectory === '' || str_contains($sourcePath, '..') || str_contains($destinationDirectory, '..')) {
+            $this->fail(
+                Response::HTTP_FORBIDDEN,
+                __('messages.media_path_forbidden'),
+            );
+        }
+
+        $driver = MediaStorageDriverEnum::fromConfig();
+
+        return match ($driver) {
+            MediaStorageDriverEnum::LOCAL => $this->copyLocalStoredTo($sourcePath, $destinationDirectory),
+            MediaStorageDriverEnum::CLOUDINARY => $this->copyCloudinaryStoredTo($sourcePath, $destinationDirectory),
+            MediaStorageDriverEnum::AWS => $this->fail(
+                Response::HTTP_NOT_IMPLEMENTED,
+                __('messages.media_driver_not_implemented', [
+                    'driver' => $driver->value,
+                ]),
+            ),
+        };
+    }
+
     private function assertOwnedLocalTmpFile(User $user, string $path): void
     {
         $path = ltrim($path, '/');
@@ -187,6 +218,102 @@ class MediaService extends Service
                 __('messages.media_not_found'),
             );
         }
+    }
+
+    /**
+     * @return array{path: string, url: string}
+     */
+    private function copyLocalStoredTo(string $sourcePath, string $destinationDirectory): array
+    {
+        $disk = (string) config('media.local_disk', 'public');
+
+        if (! Storage::disk($disk)->exists($sourcePath)) {
+            $this->fail(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('messages.media_not_found'),
+            );
+        }
+
+        $filename = basename($sourcePath);
+        $destinationPath = $destinationDirectory.'/'.$filename;
+
+        if (Storage::disk($disk)->exists($destinationPath) || $destinationPath === $sourcePath) {
+            $extension = pathinfo($filename, PATHINFO_EXTENSION);
+            $filename = Str::lower((string) Str::ulid()).($extension !== '' ? '.'.$extension : '');
+            $destinationPath = $destinationDirectory.'/'.$filename;
+        }
+
+        $copied = Storage::disk($disk)->copy($sourcePath, $destinationPath);
+
+        if (! $copied) {
+            $this->fail(
+                Response::HTTP_INTERNAL_SERVER_ERROR,
+                __('messages.media_copy_failed'),
+            );
+        }
+
+        return [
+            'path' => $destinationPath,
+            'url' => Storage::disk($disk)->url($destinationPath),
+        ];
+    }
+
+    /**
+     * @return array{path: string, url: string}
+     */
+    private function copyCloudinaryStoredTo(string $sourcePath, string $destinationDirectory): array
+    {
+        $this->configureCloudinary();
+
+        $filename = basename($sourcePath);
+        $destinationPath = $destinationDirectory.'/'.$filename;
+        $resourceType = $this->cloudinaryResourceTypeFromPath($sourcePath);
+        $projectFolder = $this->cloudinaryFolder();
+        $sourceUrl = $this->cloudinaryUrl($sourcePath, $resourceType);
+
+        $upload = function (string $path) use ($sourceUrl, $resourceType, $projectFolder): array {
+            $uploadOptions = [
+                'public_id' => $this->cloudinaryPublicId($path),
+                'resource_type' => $resourceType,
+            ];
+
+            if ($projectFolder !== '') {
+                $uploadOptions['asset_folder'] = $projectFolder;
+            }
+
+            return $this->cloudinaryUpload($sourceUrl, $uploadOptions);
+        };
+
+        try {
+            $result = $upload($destinationPath);
+        } catch (Throwable $exception) {
+            if ($this->isCloudinaryAlreadyExists($exception) || $destinationPath === $sourcePath) {
+                $extension = pathinfo($filename, PATHINFO_EXTENSION);
+                $filename = Str::lower((string) Str::ulid()).($extension !== '' ? '.'.$extension : '');
+                $destinationPath = $destinationDirectory.'/'.$filename;
+
+                try {
+                    $result = $upload($destinationPath);
+                } catch (Throwable) {
+                    $this->fail(
+                        Response::HTTP_INTERNAL_SERVER_ERROR,
+                        __('messages.media_copy_failed'),
+                    );
+                }
+            } else {
+                $this->fail(
+                    Response::HTTP_INTERNAL_SERVER_ERROR,
+                    __('messages.media_copy_failed'),
+                );
+            }
+        }
+
+        return [
+            'path' => $destinationPath,
+            'url' => $result['secure_url']
+                ?? $result['url']
+                ?? $this->cloudinaryUrl($destinationPath, $resourceType),
+        ];
     }
 
     /**

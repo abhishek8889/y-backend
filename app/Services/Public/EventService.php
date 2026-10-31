@@ -24,6 +24,7 @@ class EventService extends Service
      *     organisation_id?: int|null,
      *     organisation_unique_id?: string|null,
      *     event_category_id?: int|null,
+     *     event_category_slug?: string|null,
      *     search?: string|null,
      *     per_page?: int|null,
      *     cursor?: string|null
@@ -34,6 +35,9 @@ class EventService extends Service
     {
         $organisationId = $this->resolveOrganisationId($filters);
         $eventCategoryId = $filters['event_category_id'] ?? null;
+        $eventCategorySlug = isset($filters['event_category_slug'])
+            ? trim((string) $filters['event_category_slug'])
+            : null;
         $search = isset($filters['search']) ? trim((string) $filters['search']) : null;
         $perPage = CursorPaginatedResponse::resolvePerPage($filters['per_page'] ?? null);
 
@@ -49,6 +53,13 @@ class EventService extends Service
             ->when(
                 $eventCategoryId !== null,
                 fn ($query) => $query->where('event_category_id', $eventCategoryId),
+            )
+            ->when(
+                filled($eventCategorySlug),
+                fn ($query) => $query->whereHas(
+                    'category',
+                    fn ($categoryQuery) => $categoryQuery->where('slug', $eventCategorySlug),
+                ),
             )
             ->when(
                 filled($search),
