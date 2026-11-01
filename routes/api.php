@@ -3,10 +3,12 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\Organisation\CustomerController;
+use App\Http\Controllers\Api\Organisation\DomainController;
 use App\Http\Controllers\Api\Organisation\EventController;
 use App\Http\Controllers\Api\Organisation\OrderController;
 use App\Http\Controllers\Api\Organisation\OrganisationController;
 use App\Http\Controllers\Api\Organisation\OrgStripeController;
+use App\Http\Controllers\Api\Organisation\SiteController;
 use App\Http\Controllers\Api\Organisation\RolePermissionController;
 use App\Http\Controllers\Api\Organisation\StaffMemberController;
 use App\Http\Controllers\Api\Organisation\VenueController;
@@ -20,6 +22,7 @@ use App\Http\Controllers\Api\Public\TimezoneController as PublicTimezoneControll
 use App\Http\Controllers\Api\Public\WishlistController as PublicWishlistController;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripeAccountWebhook;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripePaymentWebhook;
+use App\Http\Controllers\Api\Webhooks\Vercel\VercelWebhook;
 use App\Http\Resources\UserResource;
 use App\Http\Responses\ApiResponse;
 use Illuminate\Http\Request;
@@ -53,6 +56,9 @@ Route::post('/account-webhooks', StripeAccountWebhook::class)
 
 Route::post('/stripe/payment-webhooks', StripePaymentWebhook::class)
     ->name('stripe.payment-webhooks');
+
+Route::post('/vercel/webhooks', VercelWebhook::class)
+    ->name('vercel.webhooks');
 
 // ################## Public Venue Option Lists ##################
 Route::prefix('venue')->group(function () {
@@ -171,6 +177,22 @@ Route::middleware('jwt')->group(function () {
             Route::post('/account/detail', [OrgStripeController::class, 'stripeAccountDetail']);
             Route::post('/account/create', [OrgStripeController::class, 'createConnectedAccount']);
             Route::post('/account/onboarding-link', [OrgStripeController::class, 'createOnboardingLink']);
+        });
+
+        // ###### Domain / Vercel Routes ######
+        Route::prefix('domain')->group(function () {
+            Route::post('/connect', [DomainController::class, 'connect']);
+            Route::get('/status', [DomainController::class, 'status']);
+        });
+
+        // ###### Site Routes ######
+        Route::prefix('site')->group(function () {
+            Route::get('/list', [SiteController::class, 'list']);
+            Route::post('/create', [SiteController::class, 'create']);
+            Route::post('/update/{site_id}', [SiteController::class, 'update']);
+            Route::post('/{site_id}/update-domain', [SiteController::class, 'updateDomain']);
+            Route::get('/{site_id}/domain-status', [SiteController::class, 'checkDomainStatus']);
+            Route::post('/{site_id}/refresh-domain', [SiteController::class, 'refreshDomain']);
         });
 
         // ########### Role & Permission Routes ###########

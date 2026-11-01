@@ -41,4 +41,14 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
 
+    'vercel' => [
+        'token' => env('VERCEL_TOKEN'),
+        'project_id' => env('VERCEL_PROJECT_ID'),
+        'team_id' => env('VERCEL_TEAM_ID'),
+        'cname_target' => env('VERCEL_CNAME_TARGET'),
+        'a_record_ip' => env('VERCEL_A_RECORD_IP', '216.150.1.1'),
+        'base_url' => env('VERCEL_API_BASE_URL', 'https://api.vercel.com'),
+        'webhook_secret' => env('VERCEL_WEBHOOK_SECRET'),
+    ],
+
 ];

@@ -149,4 +149,20 @@ class Organisation extends Model
     {
         return $this->hasMany(OrganiserLedgerEntry::class);
     }
+
+    /**
+     * @return HasMany<Site, $this>
+     */
+    public function sites(): HasMany
+    {
+        return $this->hasMany(Site::class);
+    }
+
+    /**
+     * @return HasMany<News, $this>
+     */
+    public function news(): HasMany
+    {
+        return $this->hasMany(News::class);
+    }
 }

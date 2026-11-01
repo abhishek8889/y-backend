@@ -143,6 +143,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'vercel_webhook' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/vercel-webhook.log'),
+            'level' => env('LOG_VERCEL_WEBHOOK_LEVEL', 'debug'),
+            'max_files' => env('LOG_VERCEL_WEBHOOK_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];
