@@ -24,7 +24,9 @@ class SiteController extends Controller
 
             return $this->success(
                 __('messages.site_list'),
-                SiteListResource::collection($response['sites']),
+                [
+                    'sites' => SiteListResource::collection($response['sites']),
+                ],
             );
         } catch (Throwable $exception) {
             return $this->failed($exception);
@@ -32,7 +34,7 @@ class SiteController extends Controller
     }
 
     /**
-     * Create a draft site without connecting the domain to Vercel.
+     * Create a draft site (name + hostname + optional template). Domain stored locally only.
      */
     public function create(StoreSiteRequest $request, SiteService $site): JsonResponse
     {
@@ -51,7 +53,8 @@ class SiteController extends Controller
     }
 
     /**
-     * Update site fields / assets. Publishing (status=active) connects the domain to Vercel.
+     * Patch site fields (name, logo, navigation, status). Only sent keys are updated.
+     * Publishing (status=active) connects the domain to Vercel when branding is complete.
      */
     public function update(UpdateSiteRequest $request, SiteService $site, int $site_id): JsonResponse
     {

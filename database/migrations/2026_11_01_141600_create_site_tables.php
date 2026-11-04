@@ -1,10 +1,11 @@
 <?php
 
 use App\Enum\NewsStatusEnum;
-use App\Enum\SiteBannerStatusEnum;
-use App\Enum\SiteBannerTypeEnum;
+use App\Enum\SiteBannerFeatureImageTargetEnum;
+use App\Enum\SiteBannerFeatureTypeEnum;
 use App\Enum\SiteDomainStatusEnum;
 use App\Enum\SiteStatusEnum;
+use App\Enum\StatusEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -39,20 +40,16 @@ return new class extends Migration
                 ->constrained('site_templates')
                 ->nullOnDelete();
 
-            $table->string('site_type');
             $table->string('name');
             $table->string('slug')->nullable();
             $table->string('status')->default(SiteStatusEnum::DRAFT->value);
             $table->string('logo')->nullable();
-            $table->string('favicon')->nullable();
-            $table->json('header')->nullable();
-            $table->json('footer')->nullable();
+            $table->json('navigation')->nullable();
+            $table->json('feature_object')->nullable()->comment(
+                'Site feature toggles, e.g. {"event_category":"on","news_category":"on"}'
+            );
 
             $table->foreignId('created_by')
-                ->nullable()
-                ->constrained('users')
-                ->nullOnDelete();
-            $table->foreignId('updated_by')
                 ->nullable()
                 ->constrained('users')
                 ->nullOnDelete();
@@ -60,7 +57,6 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['organisation_id', 'slug']);
-            $table->index(['organisation_id', 'site_type']);
             $table->index(['organisation_id', 'status']);
         });
 
@@ -91,59 +87,18 @@ return new class extends Migration
                 ->constrained('sites')
                 ->cascadeOnDelete();
 
-            $table->string('banner_type')->default(SiteBannerTypeEnum::IMAGE->value);
-            $table->string('banner_url')->nullable();
-            $table->string('banner_title')->nullable();
-            $table->string('banner_subtitle')->nullable();
+            $table->string('feature_type')->default(SiteBannerFeatureTypeEnum::CUSTOM->value);
+            $table->string('feature_image_target')
+                ->default(SiteBannerFeatureImageTargetEnum::CUSTOM_UPLOAD->value);
+            $table->string('custom_headline')->nullable()->comment('Used when feature_type is custom');
+            $table->string('image_url')->nullable()->comment(
+                'Required when feature_image_target is custom_upload, or when feature_type is custom'
+            );
             $table->string('cta_button_1_label')->nullable();
             $table->string('cta_button_1_url')->nullable();
-            $table->string('cta_button_2_label')->nullable();
-            $table->string('cta_button_2_url')->nullable();
-            $table->string('status')->default(SiteBannerStatusEnum::DRAFT->value);
-            $table->unsignedInteger('sort_order')->default(0);
             $table->timestamps();
 
-            $table->index(['site_id', 'status']);
-        });
-
-        Schema::create('site_contents', function (Blueprint $table) {
-            $table->id();
-
-            $table->foreignId('site_id')
-                ->constrained('sites')
-                ->cascadeOnDelete();
-
-            $table->string('page_name');
-            $table->string('page_slug');
-            $table->string('featured_image_url')->nullable();
-            $table->json('content')->nullable();
-
-            $table->foreignId('created_by')
-                ->nullable()
-                ->constrained('users')
-                ->nullOnDelete();
-
-            $table->timestamps();
-
-            $table->unique(['site_id', 'page_name']);
-            $table->unique(['site_id', 'page_slug']);
-        });
-
-        Schema::create('site_events', function (Blueprint $table) {
-            $table->id();
-
-            $table->foreignId('site_id')
-                ->constrained('sites')
-                ->cascadeOnDelete();
-
-            $table->foreignId('event_id')
-                ->constrained('events')
-                ->cascadeOnDelete();
-
-            $table->unsignedInteger('sort_order')->default(0);
-            $table->timestamps();
-
-            $table->unique(['site_id', 'event_id']);
+            $table->index(['site_id', 'feature_type']);
         });
 
         Schema::create('news', function (Blueprint $table) {
@@ -153,20 +108,25 @@ return new class extends Migration
                 ->constrained('organisations')
                 ->cascadeOnDelete();
 
-            $table->string('unique_id')->unique();
-            $table->string('title');
+            $table->foreignId('site_id')
+                ->nullable()
+                ->constrained('sites')
+                ->nullOnDelete();
+
+            $table->string('headline');
             $table->string('slug');
             $table->text('excerpt')->nullable();
-            $table->longText('body')->nullable();
-            $table->string('image')->nullable();
+            $table->longText('description')->nullable();
+
+            $table->foreignId('linked_event_id')
+                ->nullable()
+                ->constrained('events')
+                ->nullOnDelete();
+
             $table->string('status')->default(NewsStatusEnum::DRAFT->value);
             $table->timestamp('published_at')->nullable();
 
             $table->foreignId('created_by')
-                ->nullable()
-                ->constrained('users')
-                ->nullOnDelete();
-            $table->foreignId('updated_by')
                 ->nullable()
                 ->constrained('users')
                 ->nullOnDelete();
@@ -175,34 +135,55 @@ return new class extends Migration
 
             $table->unique(['organisation_id', 'slug']);
             $table->index(['organisation_id', 'status']);
+            $table->index(['site_id', 'status']);
         });
 
-        Schema::create('site_news', function (Blueprint $table) {
+        Schema::create('site_categories', function (Blueprint $table) {
             $table->id();
 
             $table->foreignId('site_id')
                 ->constrained('sites')
                 ->cascadeOnDelete();
 
-            $table->foreignId('news_id')
-                ->constrained('news')
-                ->cascadeOnDelete();
-
-            $table->unsignedInteger('sort_order')->default(0);
+            $table->string('category_type');
+            $table->unsignedBigInteger('category_id')->comment(
+                'Target id: event id when category_type=events, news id when category_type=news'
+            );
             $table->timestamps();
 
-            $table->unique(['site_id', 'news_id']);
+            $table->unique(['site_id', 'category_type', 'category_id']);
+            $table->index(['category_type', 'category_id']);
+        });
+
+        Schema::create('site_support_contacts', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('site_id')
+                ->constrained('sites')
+                ->cascadeOnDelete();
+
+            $table->string('department_name');
+            $table->string('email')->nullable();
+            $table->string('phone')->nullable();
+            $table->string('status')->default(StatusEnum::ACTIVE->value);
+
+            $table->foreignId('created_by')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
+
+            $table->timestamps();
+
+            $table->index(['site_id', 'status']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('site_news');
+        Schema::dropIfExists('site_support_contacts');
+        Schema::dropIfExists('site_categories');
         Schema::dropIfExists('news');
-        Schema::dropIfExists('site_events');
-        Schema::dropIfExists('site_contents');
         Schema::dropIfExists('site_banners');
-        Schema::dropIfExists('site_header_footers');
         Schema::dropIfExists('site_domains');
         Schema::dropIfExists('sites');
         Schema::dropIfExists('site_templates');

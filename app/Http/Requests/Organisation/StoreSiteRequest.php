@@ -2,10 +2,8 @@
 
 namespace App\Http\Requests\Organisation;
 
-use App\Enum\SiteTypeEnum;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreSiteRequest extends FormRequest
 {
@@ -21,16 +19,16 @@ class StoreSiteRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'domain' => ['required', 'string', 'max:255', 'regex:/^(?=.{1,255}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i'],
-            'site_type' => ['required', 'string', Rule::in([
-                SiteTypeEnum::CLUB->value,
-                SiteTypeEnum::WHITE_LABEL->value,
-            ])],
-            'site_template_id' => ['nullable', 'integer', 'exists:site_templates,id'],
-            'logo' => ['nullable', 'string', 'max:2048'],
-            'favicon' => ['nullable', 'string', 'max:2048'],
-            'header' => ['nullable', 'array'],
-            'footer' => ['nullable', 'array'],
+            // Domain hostname only (e.g. club.example.com) — not a URL with scheme/path.
+            'hostname' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^(?=.{1,255}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i',
+                'not_regex:/^https?:\/\//i',
+                'not_regex:/[\/?#]/',
+            ],
+            'template_id' => ['nullable', 'integer', 'exists:site_templates,id'],
         ];
     }
 
@@ -41,11 +39,10 @@ class StoreSiteRequest extends FormRequest
     {
         return [
             'name.required' => __('validation.required'),
-            'domain.required' => __('validation.required'),
-            'domain.regex' => __('validation.regex'),
-            'site_type.required' => __('validation.required'),
-            'site_type.in' => __('validation.in'),
-            'site_template_id.exists' => __('validation.exists'),
+            'hostname.required' => __('validation.required'),
+            'hostname.regex' => 'Hostname must be a domain name only (e.g. club.example.com), not a URL.',
+            'hostname.not_regex' => 'Hostname must be a domain name only (e.g. club.example.com), not a URL.',
+            'template_id.exists' => __('validation.exists'),
         ];
     }
 
@@ -56,13 +53,8 @@ class StoreSiteRequest extends FormRequest
     {
         return [
             'name' => 'site name',
-            'domain' => 'domain',
-            'site_type' => 'site type',
-            'site_template_id' => 'site template',
-            'logo' => 'logo',
-            'favicon' => 'favicon',
-            'header' => 'header',
-            'footer' => 'footer',
+            'hostname' => 'hostname',
+            'template_id' => 'site template',
         ];
     }
 }

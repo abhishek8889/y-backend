@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\Organisation\OrderController;
 use App\Http\Controllers\Api\Organisation\OrganisationController;
 use App\Http\Controllers\Api\Organisation\OrgStripeController;
 use App\Http\Controllers\Api\Organisation\SiteController;
+use App\Http\Controllers\Api\Organisation\SiteNewsController;
+use App\Http\Controllers\Api\Organisation\SiteSupportContactController;
 use App\Http\Controllers\Api\Organisation\RolePermissionController;
 use App\Http\Controllers\Api\Organisation\StaffMemberController;
 use App\Http\Controllers\Api\Organisation\VenueController;
@@ -135,7 +137,7 @@ Route::middleware('jwt')->group(function () {
 
         // ###### Event Routes ######
         Route::prefix('event')->group(function () {
-            Route::get('/list', [EventController::class, 'list'])->middleware('organisation.permission:events.read');
+            Route::get('/list', [EventController::class, 'list'])->middleware('organisation.permission:events.read,org_clubsites.read,org_clubsites.create,org_clubsites.update');
             Route::get('/details/{event_id}', [EventController::class, 'details'])->middleware('organisation.permission:events.read');
             Route::post('/create', [EventController::class, 'create'])->middleware('organisation.permission:events.create');
             Route::post('/duplicate/{event_id}', [EventController::class, 'duplicate'])->middleware('organisation.permission:events.create');
@@ -187,12 +189,43 @@ Route::middleware('jwt')->group(function () {
 
         // ###### Site Routes ######
         Route::prefix('site')->group(function () {
-            Route::get('/list', [SiteController::class, 'list']);
-            Route::post('/create', [SiteController::class, 'create']);
-            Route::post('/update/{site_id}', [SiteController::class, 'update']);
-            Route::post('/{site_id}/update-domain', [SiteController::class, 'updateDomain']);
-            Route::get('/{site_id}/domain-status', [SiteController::class, 'checkDomainStatus']);
-            Route::post('/{site_id}/refresh-domain', [SiteController::class, 'refreshDomain']);
+            Route::get('/list', [SiteController::class, 'list'])
+                ->middleware('organisation.permission:org_clubsites.read,org_clubsites.create,org_clubsites.update');
+            Route::post('/create', [SiteController::class, 'create'])
+                ->middleware('organisation.permission:org_clubsites.create');
+            Route::post('/update/{site_id}', [SiteController::class, 'update'])
+                ->middleware('organisation.permission:org_clubsites.update');
+
+            Route::prefix('news')->group(function () {
+                Route::get('/list', [SiteNewsController::class, 'list'])
+                    ->middleware('organisation.permission:org_clubsites.read,org_clubsites.create,org_clubsites.update');
+                Route::post('/create', [SiteNewsController::class, 'create'])
+                    ->middleware('organisation.permission:org_clubsites.create,org_clubsites.update');
+                Route::post('/update/{news_id}', [SiteNewsController::class, 'update'])
+                    ->middleware('organisation.permission:org_clubsites.update');
+                Route::post('/manage-status/{news_id}', [SiteNewsController::class, 'manageStatus'])
+                    ->middleware('organisation.permission:org_clubsites.update');
+                Route::delete('/delete/{news_id}', [SiteNewsController::class, 'delete'])
+                    ->middleware('organisation.permission:org_clubsites.update,org_clubsites.delete');
+            });
+
+            Route::prefix('support-contact')->group(function () {
+                Route::get('/list', [SiteSupportContactController::class, 'list'])
+                    ->middleware('organisation.permission:org_clubsites.read,org_clubsites.create,org_clubsites.update');
+                Route::post('/create', [SiteSupportContactController::class, 'create'])
+                    ->middleware('organisation.permission:org_clubsites.create,org_clubsites.update');
+                Route::post('/update/{contact_id}', [SiteSupportContactController::class, 'update'])
+                    ->middleware('organisation.permission:org_clubsites.update');
+                Route::delete('/delete/{contact_id}', [SiteSupportContactController::class, 'delete'])
+                    ->middleware('organisation.permission:org_clubsites.update,org_clubsites.delete');
+            });
+
+            Route::post('/{site_id}/update-domain', [SiteController::class, 'updateDomain'])
+                ->middleware('organisation.permission:org_clubsites.update');
+            Route::get('/{site_id}/domain-status', [SiteController::class, 'checkDomainStatus'])
+                ->middleware('organisation.permission:org_clubsites.read,org_clubsites.update');
+            Route::post('/{site_id}/refresh-domain', [SiteController::class, 'refreshDomain'])
+                ->middleware('organisation.permission:org_clubsites.update');
         });
 
         // ########### Role & Permission Routes ###########

@@ -6,37 +6,36 @@ use App\Enum\NewsStatusEnum;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
  * @property int $organisation_id
- * @property string $unique_id
- * @property string $title
+ * @property int|null $site_id
+ * @property string|null $featured_image
+ * @property string $headline
  * @property string $slug
  * @property string|null $excerpt
- * @property string|null $body
- * @property string|null $image
+ * @property string|null $description
+ * @property int|null $linked_event_id
  * @property NewsStatusEnum $status
  * @property Carbon|null $published_at
  * @property int|null $created_by
- * @property int|null $updated_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
 #[Fillable([
     'organisation_id',
-    'unique_id',
-    'title',
+    'site_id',
+    'featured_image',
+    'headline',
     'slug',
     'excerpt',
-    'body',
-    'image',
+    'description',
+    'linked_event_id',
     'status',
     'published_at',
     'created_by',
-    'updated_by',
 ])]
 class News extends Model
 {
@@ -62,14 +61,19 @@ class News extends Model
     }
 
     /**
-     * @return BelongsToMany<Site, $this>
+     * @return BelongsTo<Site, $this>
      */
-    public function sites(): BelongsToMany
+    public function site(): BelongsTo
     {
-        return $this->belongsToMany(Site::class, 'site_news')
-            ->withPivot(['id', 'sort_order'])
-            ->withTimestamps()
-            ->orderByPivot('sort_order');
+        return $this->belongsTo(Site::class);
+    }
+
+    /**
+     * @return BelongsTo<Event, $this>
+     */
+    public function linkedEvent(): BelongsTo
+    {
+        return $this->belongsTo(Event::class, 'linked_event_id');
     }
 
     /**
@@ -78,13 +82,5 @@ class News extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
-     * @return BelongsTo<User, $this>
-     */
-    public function updater(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'updated_by');
     }
 }

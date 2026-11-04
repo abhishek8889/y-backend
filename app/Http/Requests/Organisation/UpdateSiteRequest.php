@@ -15,24 +15,21 @@ class UpdateSiteRequest extends FormRequest
     }
 
     /**
+     * Only keys present in the request are validated and applied.
+     *
+     * Fixed navigation item shape stored in sites.navigation:
+     * { "name": string, "redirect_link": string }
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'domain' => [
-                'sometimes',
-                'required',
-                'string',
-                'max:255',
-                'regex:/^(?=.{1,255}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i',
-            ],
-            'site_template_id' => ['sometimes', 'nullable', 'integer', 'exists:site_templates,id'],
             'logo' => ['sometimes', 'nullable', 'string', 'max:2048'],
-            'favicon' => ['sometimes', 'nullable', 'string', 'max:2048'],
-            'header' => ['sometimes', 'nullable', 'array'],
-            'footer' => ['sometimes', 'nullable', 'array'],
+            'navigation' => ['sometimes', 'nullable', 'array'],
+            'navigation.*.name' => ['required', 'string', 'max:255'],
+            'navigation.*.redirect_link' => ['required', 'string', 'max:2048'],
             'status' => ['sometimes', 'required', 'string', Rule::in([
                 SiteStatusEnum::DRAFT->value,
                 SiteStatusEnum::ACTIVE->value,
@@ -48,9 +45,8 @@ class UpdateSiteRequest extends FormRequest
     {
         return [
             'name.required' => __('validation.required'),
-            'domain.required' => __('validation.required'),
-            'domain.regex' => __('validation.regex'),
-            'site_template_id.exists' => __('validation.exists'),
+            'navigation.*.name.required' => 'Each navigation item needs a name.',
+            'navigation.*.redirect_link.required' => 'Each navigation item needs a redirect_link.',
             'status.in' => __('validation.in'),
         ];
     }
@@ -62,12 +58,8 @@ class UpdateSiteRequest extends FormRequest
     {
         return [
             'name' => 'site name',
-            'domain' => 'domain',
-            'site_template_id' => 'site template',
             'logo' => 'logo',
-            'favicon' => 'favicon',
-            'header' => 'header',
-            'footer' => 'footer',
+            'navigation' => 'navigation',
             'status' => 'status',
         ];
     }

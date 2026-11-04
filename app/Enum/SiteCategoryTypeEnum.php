@@ -2,18 +2,16 @@
 
 namespace App\Enum;
 
-enum SiteBannerStatusEnum: string
+enum SiteCategoryTypeEnum: string
 {
-    case DRAFT = 'draft';
-    case ACTIVE = 'active';
-    case DISABLED = 'disabled';
+    case EVENTS = 'events';
+    case NEWS = 'news';
 
     public function label(): string
     {
         return match ($this) {
-            self::DRAFT => 'Draft',
-            self::ACTIVE => 'Active',
-            self::DISABLED => 'Disabled',
+            self::EVENTS => 'Events',
+            self::NEWS => 'News',
         };
     }
 

@@ -14,24 +14,43 @@ use ValueError;
 class EnsureOrganisationPermission
 {
     /**
+     * Require any one of the given organisation permissions.
+     *
+     * Usage:
+     * - organisation.permission:events.read
+     * - organisation.permission:events.read,org_clubsites.read,org_clubsites.create,org_clubsites.update
+     *
      * @param  Closure(Request): (Response)  $next
      */
-    public function handle(Request $request, Closure $next, string $permission): Response
+    public function handle(Request $request, Closure $next, string ...$permissions): Response
     {
-        try {
-            $permissionEnum = PermissionEnum::from($permission);
-        } catch (ValueError) {
+        if ($permissions === []) {
             throw new ServiceException(
                 Response::HTTP_FORBIDDEN,
                 __('messages.permission_denied'),
             );
         }
 
-        if ($permissionEnum->scope() !== PermissionScopeEnum::ORGANISATION) {
-            throw new ServiceException(
-                Response::HTTP_FORBIDDEN,
-                __('messages.permission_denied'),
-            );
+        $permissionEnums = [];
+
+        foreach ($permissions as $permission) {
+            try {
+                $permissionEnum = PermissionEnum::from($permission);
+            } catch (ValueError) {
+                throw new ServiceException(
+                    Response::HTTP_FORBIDDEN,
+                    __('messages.permission_denied'),
+                );
+            }
+
+            if ($permissionEnum->scope() !== PermissionScopeEnum::ORGANISATION) {
+                throw new ServiceException(
+                    Response::HTTP_FORBIDDEN,
+                    __('messages.permission_denied'),
+                );
+            }
+
+            $permissionEnums[] = $permissionEnum;
         }
 
         $user = $request->user();
@@ -41,7 +60,22 @@ class EnsureOrganisationPermission
             ? Organisation::query()->find($organisationId)
             : null;
 
-        if ($user === null || $organisation === null || ! $user->hasOrganisationPermission($organisation, $permissionEnum)) {
+        if ($user === null || $organisation === null) {
+            throw new ServiceException(
+                Response::HTTP_FORBIDDEN,
+                __('messages.permission_denied'),
+            );
+        }
+
+        $allowed = false;
+        foreach ($permissionEnums as $permissionEnum) {
+            if ($user->hasOrganisationPermission($organisation, $permissionEnum)) {
+                $allowed = true;
+                break;
+            }
+        }
+
+        if (! $allowed) {
             throw new ServiceException(
                 Response::HTTP_FORBIDDEN,
                 __('messages.permission_denied'),

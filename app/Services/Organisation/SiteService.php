@@ -4,7 +4,6 @@ namespace App\Services\Organisation;
 
 use App\Enum\SiteDomainStatusEnum;
 use App\Enum\SiteStatusEnum;
-use App\Enum\SiteTypeEnum;
 use App\Exceptions\ServiceException;
 use App\Models\Site;
 use App\Models\SiteDomain;
@@ -28,7 +27,7 @@ class SiteService extends Service
     ) {}
 
     /**
-     * List sites for the authenticated organiser's organisation (with domain).
+     * List sites for the authenticated organiser's organisation (with domain + template).
      *
      * @return array{sites: Collection<int, Site>}
      */
@@ -38,8 +37,7 @@ class SiteService extends Service
 
         $sites = Site::query()
             ->where('organisation_id', $organisation->id)
-            ->with('domain')
-            ->orderByRaw("CASE WHEN site_type = 'club' THEN 0 ELSE 1 END")
+            ->with(['domain', 'template'])
             ->orderByDesc('id')
             ->get();
 
@@ -49,39 +47,19 @@ class SiteService extends Service
     }
 
     /**
-     * Create a draft site and store the domain without connecting to Vercel.
+     * Create a draft site + domain row (name, hostname, optional template_id). No Vercel.
      *
      * @param  array{
      *     name: string,
-     *     domain: string,
-     *     site_type: string,
-     *     site_template_id?: int|null,
-     *     logo?: string|null,
-     *     favicon?: string|null,
-     *     header?: array<string, mixed>|null,
-     *     footer?: array<string, mixed>|null
+     *     hostname: string,
+     *     template_id?: int|null
      * }  $data
      * @return array{site: Site}
      */
     public function create(User $actor, array $data): array
     {
         $organisation = $this->organisation->getOrganisationDetail($actor)['organisation'];
-        $siteType = SiteTypeEnum::from((string) $data['site_type']);
-        $hostname = $this->normalizeHostname((string) $data['domain']);
-
-        if ($siteType === SiteTypeEnum::CLUB) {
-            $clubExists = Site::query()
-                ->where('organisation_id', $organisation->id)
-                ->where('site_type', SiteTypeEnum::CLUB)
-                ->exists();
-
-            if ($clubExists) {
-                $this->fail(
-                    Response::HTTP_UNPROCESSABLE_ENTITY,
-                    __('messages.site_club_already_exists'),
-                );
-            }
-        }
+        $hostname = $this->normalizeHostname((string) $data['hostname']);
 
         if (SiteDomain::query()->where('hostname', $hostname)->exists()) {
             $this->fail(
@@ -91,7 +69,7 @@ class SiteService extends Service
         }
 
         try {
-            $site = DB::transaction(function () use ($actor, $organisation, $data, $siteType, $hostname): Site {
+            $site = DB::transaction(function () use ($actor, $organisation, $data, $hostname): Site {
                 $uniqueId = UniqueIdGenerator::generate('STE');
                 while (Site::query()->where('unique_id', $uniqueId)->exists()) {
                     $uniqueId = UniqueIdGenerator::generate('STE');
@@ -100,17 +78,17 @@ class SiteService extends Service
                 $site = Site::query()->create([
                     'unique_id' => $uniqueId,
                     'organisation_id' => $organisation->id,
-                    'site_template_id' => $data['site_template_id'] ?? null,
-                    'site_type' => $siteType,
+                    'site_template_id' => $data['template_id'] ?? null,
                     'name' => (string) $data['name'],
                     'slug' => $this->generateUniqueSlug((string) $data['name'], (int) $organisation->id),
                     'status' => SiteStatusEnum::DRAFT,
-                    'logo' => $data['logo'] ?? null,
-                    'favicon' => $data['favicon'] ?? null,
-                    'header' => $data['header'] ?? null,
-                    'footer' => $data['footer'] ?? null,
+                    'logo' => null,
+                    'navigation' => null,
+                    'feature_object' => [
+                        'event_category' => 'on',
+                        'news_category' => 'on',
+                    ],
                     'created_by' => $actor->id,
-                    'updated_by' => $actor->id,
                 ]);
 
                 SiteDomain::query()->create([
@@ -141,16 +119,16 @@ class SiteService extends Service
     }
 
     /**
-     * Update draft site fields (assets, domain, etc.). Publishing connects the domain to Vercel.
+     * Patch site fields. Only keys present in $data are updated.
+     *
+     * Supported keys: name, logo, navigation, status.
+     * Navigation is always stored as:
+     * [{ "name": string, "redirect_link": string }, ...]
      *
      * @param  array{
      *     name?: string,
-     *     domain?: string,
-     *     site_template_id?: int|null,
      *     logo?: string|null,
-     *     favicon?: string|null,
-     *     header?: array<string, mixed>|null,
-     *     footer?: array<string, mixed>|null,
+     *     navigation?: list<array{name: string, redirect_link: string}>|null,
      *     status?: string
      * }  $data
      * @return array{
@@ -175,46 +153,17 @@ class SiteService extends Service
             );
         }
 
-        $hostname = null;
-        if (array_key_exists('domain', $data) && $data['domain'] !== null) {
-            $hostname = $this->normalizeHostname((string) $data['domain']);
-            $domain = $site->domain;
-
-            if ($domain !== null && $domain->vercel_added && $domain->hostname !== $hostname) {
-                $this->fail(
-                    Response::HTTP_UNPROCESSABLE_ENTITY,
-                    __('messages.site_domain_cannot_change'),
-                );
-            }
-
-            $hostnameTaken = SiteDomain::query()
-                ->where('hostname', $hostname)
-                ->when($domain !== null, fn ($query) => $query->where('id', '!=', $domain->id))
-                ->exists();
-
-            if ($hostnameTaken) {
-                $this->fail(
-                    Response::HTTP_UNPROCESSABLE_ENTITY,
-                    __('messages.site_domain_already_exists'),
-                );
-            }
-        }
-
         $shouldPublish = array_key_exists('status', $data)
             && (string) $data['status'] === SiteStatusEnum::ACTIVE->value;
 
         try {
-            $site = DB::transaction(function () use ($actor, $site, $data, $hostname): Site {
-                $updates = [
-                    'updated_by' => $actor->id,
-                ];
+            $site = DB::transaction(function () use ($actor, $site, $data): Site {
+                $updates = [];
 
                 if (array_key_exists('name', $data)) {
                     $updates['name'] = (string) $data['name'];
                 }
-                if (array_key_exists('site_template_id', $data)) {
-                    $updates['site_template_id'] = $data['site_template_id'];
-                }
+
                 if (array_key_exists('logo', $data)) {
                     $updates['logo'] = $this->resolveSiteMediaPath(
                         $actor,
@@ -224,33 +173,11 @@ class SiteService extends Service
                         $site->logo,
                     );
                 }
-                if (array_key_exists('favicon', $data)) {
-                    $updates['favicon'] = $this->resolveSiteMediaPath(
-                        $actor,
-                        $site,
-                        $data['favicon'] ?? null,
-                        'favicon',
-                        $site->favicon,
-                    );
+
+                if (array_key_exists('navigation', $data)) {
+                    $updates['navigation'] = $this->normalizeNavigation($data['navigation'] ?? null);
                 }
-                if (array_key_exists('header', $data)) {
-                    $updates['header'] = $this->normalizeBrandingBlock(
-                        $actor,
-                        $site,
-                        is_array($data['header'] ?? null) ? $data['header'] : null,
-                        'header',
-                        is_array($site->header) ? $site->header : null,
-                    );
-                }
-                if (array_key_exists('footer', $data)) {
-                    $updates['footer'] = $this->normalizeBrandingBlock(
-                        $actor,
-                        $site,
-                        is_array($data['footer'] ?? null) ? $data['footer'] : null,
-                        'footer',
-                        is_array($site->footer) ? $site->footer : null,
-                    );
-                }
+
                 if (
                     array_key_exists('status', $data)
                     && (string) $data['status'] !== SiteStatusEnum::ACTIVE->value
@@ -258,29 +185,9 @@ class SiteService extends Service
                     $updates['status'] = SiteStatusEnum::from((string) $data['status']);
                 }
 
-                $site->fill($updates);
-                $site->save();
-
-                if ($hostname !== null) {
-                    $domain = $site->domain;
-                    if ($domain === null) {
-                        SiteDomain::query()->create([
-                            'site_id' => $site->id,
-                            'hostname' => $hostname,
-                            'status' => SiteDomainStatusEnum::PENDING_DNS,
-                            'vercel_added' => false,
-                            'dns_instructions' => [],
-                            'verified_at' => null,
-                            'last_error' => null,
-                        ]);
-                    } elseif (! $domain->vercel_added) {
-                        $domain->update([
-                            'hostname' => $hostname,
-                            'status' => SiteDomainStatusEnum::PENDING_DNS,
-                            'dns_instructions' => [],
-                            'last_error' => null,
-                        ]);
-                    }
+                if ($updates !== []) {
+                    $site->fill($updates);
+                    $site->save();
                 }
 
                 return $site->fresh(['domain']) ?? $site->load('domain');
@@ -316,7 +223,6 @@ class SiteService extends Service
 
             $site->update([
                 'status' => SiteStatusEnum::ACTIVE,
-                'updated_by' => $actor->id,
             ]);
             $site = $site->fresh(['domain']) ?? $site->load('domain');
         }
@@ -326,6 +232,49 @@ class SiteService extends Service
             'dns_records' => $dnsRecords,
             'verified' => $verified,
         ];
+    }
+
+    /**
+     * Canonical navigation JSON for sites.navigation (no client ids).
+     *
+     * @param  mixed  $raw
+     * @return list<array{name: string, redirect_link: string}>|null
+     */
+    private function normalizeNavigation(mixed $raw): ?array
+    {
+        if ($raw === null) {
+            return null;
+        }
+
+        if (! is_array($raw)) {
+            return null;
+        }
+
+        $items = [];
+
+        foreach (array_values($raw) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $name = isset($row['name']) && is_string($row['name'])
+                ? trim($row['name'])
+                : '';
+            $redirect = isset($row['redirect_link']) && is_string($row['redirect_link'])
+                ? trim($row['redirect_link'])
+                : (isset($row['url']) && is_string($row['url']) ? trim($row['url']) : '/');
+
+            if ($name === '') {
+                continue;
+            }
+
+            $items[] = [
+                'name' => $name,
+                'redirect_link' => $redirect !== '' ? $redirect : '/',
+            ];
+        }
+
+        return $items;
     }
 
     /**
@@ -394,10 +343,6 @@ class SiteService extends Service
             ]);
             $domain->save();
 
-            $site->update([
-                'updated_by' => $actor->id,
-            ]);
-
             return [
                 'site' => $site->fresh(['domain']) ?? $site->load('domain'),
                 'dns_records' => [],
@@ -428,10 +373,6 @@ class SiteService extends Service
                 'last_error' => null,
             ]);
             $domain->save();
-
-            $site->update([
-                'updated_by' => $actor->id,
-            ]);
 
             $site = $site->fresh(['domain']) ?? $site->load('domain');
 
@@ -536,7 +477,6 @@ class SiteService extends Service
         if ($domainStatus === SiteDomainStatusEnum::ACTIVE) {
             $site->update([
                 'status' => SiteStatusEnum::ACTIVE,
-                'updated_by' => $actor->id,
             ]);
         }
 
@@ -672,40 +612,6 @@ class SiteService extends Service
         }
 
         return $path;
-    }
-
-    /**
-     * Normalize header/footer JSON and permanently store nested logo uploads.
-     *
-     * @param  array<string, mixed>|null  $payload
-     * @param  array<string, mixed>|null  $previous
-     * @return array<string, mixed>|null
-     */
-    private function normalizeBrandingBlock(
-        User $actor,
-        Site $site,
-        ?array $payload,
-        string $slot,
-        ?array $previous,
-    ): ?array {
-        if ($payload === null) {
-            $previousLogo = $this->extractMediaPath($previous['logo'] ?? null);
-            if (is_string($previousLogo) && $previousLogo !== '') {
-                $this->media->deleteStoredFile($previousLogo);
-            }
-
-            return null;
-        }
-
-        $payload['logo'] = $this->resolveSiteMediaPath(
-            $actor,
-            $site,
-            $payload['logo'] ?? null,
-            $slot,
-            $this->extractMediaPath($previous['logo'] ?? null),
-        );
-
-        return $payload;
     }
 
     private function extractMediaPath(mixed $value): ?string

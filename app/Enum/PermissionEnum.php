@@ -27,15 +27,10 @@ enum PermissionEnum: string
     case CustomersUpdate = 'org_customers.update';
     case CustomersDelete = 'org_customers.delete';
 
-    case ClubsitesRead = 'org_clubsites.read';
-    case ClubsitesCreate = 'org_clubsites.create';
-    case ClubsitesUpdate = 'org_clubsites.update';
-    case ClubsitesDelete = 'org_clubsites.delete';
-
-    case WhitelabelRead = 'org_whitelabel.read';
-    case WhitelabelCreate = 'org_whitelabel.create';
-    case WhitelabelUpdate = 'org_whitelabel.update';
-    case WhitelabelDelete = 'org_whitelabel.delete';
+    case SitesRead = 'org_clubsites.read';
+    case SitesCreate = 'org_clubsites.create';
+    case SitesUpdate = 'org_clubsites.update';
+    case SitesDelete = 'org_clubsites.delete';
 
     case RolesRead = 'org_roles.read';
     case RolesCreate = 'org_roles.create';
@@ -82,14 +77,10 @@ enum PermissionEnum: string
             self::CustomersCreate,
             self::CustomersUpdate,
             self::CustomersDelete,
-            self::ClubsitesRead,
-            self::ClubsitesCreate,
-            self::ClubsitesUpdate,
-            self::ClubsitesDelete,
-            self::WhitelabelRead,
-            self::WhitelabelCreate,
-            self::WhitelabelUpdate,
-            self::WhitelabelDelete,
+            self::SitesRead,
+            self::SitesCreate,
+            self::SitesUpdate,
+            self::SitesDelete,
             self::RolesRead,
             self::RolesCreate,
             self::RolesUpdate,
@@ -131,15 +122,10 @@ enum PermissionEnum: string
             self::CustomersUpdate => 'Update organisation customers',
             self::CustomersDelete => 'Delete organisation customers',
 
-            self::ClubsitesRead => 'Read organisation clubsites',
-            self::ClubsitesCreate => 'Create organisation clubsites',
-            self::ClubsitesUpdate => 'Update organisation clubsites',
-            self::ClubsitesDelete => 'Delete organisation clubsites',
-
-            self::WhitelabelRead => 'Read organisation whitelabel',
-            self::WhitelabelCreate => 'Create organisation whitelabel',
-            self::WhitelabelUpdate => 'Update organisation whitelabel',
-            self::WhitelabelDelete => 'Delete organisation whitelabel',
+            self::SitesRead => 'Read organisation clubsites',
+            self::SitesCreate => 'Create organisation clubsites',
+            self::SitesUpdate => 'Update organisation clubsites',
+            self::SitesDelete => 'Delete organisation clubsites',
 
             self::RolesRead => 'Read organisation roles',
             self::RolesCreate => 'Create organisation roles',

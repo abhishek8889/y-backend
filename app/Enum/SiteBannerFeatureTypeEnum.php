@@ -2,16 +2,18 @@
 
 namespace App\Enum;
 
-enum SiteBannerTypeEnum: string
+enum SiteBannerFeatureTypeEnum: string
 {
-    case IMAGE = 'image';
-    case VIDEO = 'video';
+    case EVENTS = 'events';
+    case NEWS = 'news';
+    case CUSTOM = 'custom';
 
     public function label(): string
     {
         return match ($this) {
-            self::IMAGE => 'Image',
-            self::VIDEO => 'Video',
+            self::EVENTS => 'Events',
+            self::NEWS => 'News',
+            self::CUSTOM => 'Custom',
         };
     }
 

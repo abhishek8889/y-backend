@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enum\StatusEnum;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,27 +11,31 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $site_id
- * @property int $event_id
- * @property int $sort_order
+ * @property string $department_name
+ * @property string|null $email
+ * @property string|null $phone
+ * @property StatusEnum $status
+ * @property int|null $created_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
 #[Fillable([
     'site_id',
-    'event_id',
-    'sort_order',
+    'department_name',
+    'email',
+    'phone',
+    'status',
+    'created_by',
 ])]
-class SiteEvent extends Model
+class SiteSupportContact extends Model
 {
-    protected $table = 'site_events';
-
     /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
-            'sort_order' => 'integer',
+            'status' => StatusEnum::class,
         ];
     }
 
@@ -43,10 +48,10 @@ class SiteEvent extends Model
     }
 
     /**
-     * @return BelongsTo<Event, $this>
+     * @return BelongsTo<User, $this>
      */
-    public function event(): BelongsTo
+    public function creator(): BelongsTo
     {
-        return $this->belongsTo(Event::class);
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

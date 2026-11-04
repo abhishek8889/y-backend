@@ -3,11 +3,9 @@
 namespace App\Models;
 
 use App\Enum\SiteStatusEnum;
-use App\Enum\SiteTypeEnum;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
@@ -17,16 +15,13 @@ use Illuminate\Support\Carbon;
  * @property string $unique_id
  * @property int|null $organisation_id
  * @property int|null $site_template_id
- * @property SiteTypeEnum $site_type
  * @property string $name
  * @property string|null $slug
  * @property SiteStatusEnum $status
  * @property string|null $logo
- * @property string|null $favicon
- * @property array<string, mixed>|null $header
- * @property array<string, mixed>|null $footer
+ * @property array<string, mixed>|null $navigation
+ * @property array<string, mixed>|null $feature_object
  * @property int|null $created_by
- * @property int|null $updated_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -34,16 +29,13 @@ use Illuminate\Support\Carbon;
     'unique_id',
     'organisation_id',
     'site_template_id',
-    'site_type',
     'name',
     'slug',
     'status',
     'logo',
-    'favicon',
-    'header',
-    'footer',
+    'navigation',
+    'feature_object',
     'created_by',
-    'updated_by',
 ])]
 class Site extends Model
 {
@@ -53,10 +45,9 @@ class Site extends Model
     protected function casts(): array
     {
         return [
-            'site_type' => SiteTypeEnum::class,
             'status' => SiteStatusEnum::class,
-            'header' => 'array',
-            'footer' => 'array',
+            'navigation' => 'array',
+            'feature_object' => 'array',
         ];
     }
 
@@ -93,33 +84,27 @@ class Site extends Model
     }
 
     /**
-     * @return HasMany<SiteContent, $this>
+     * @return HasMany<SiteCategory, $this>
      */
-    public function contents(): HasMany
+    public function categories(): HasMany
     {
-        return $this->hasMany(SiteContent::class);
+        return $this->hasMany(SiteCategory::class);
     }
 
     /**
-     * @return BelongsToMany<Event, $this>
+     * @return HasMany<SiteSupportContact, $this>
      */
-    public function events(): BelongsToMany
+    public function supportContacts(): HasMany
     {
-        return $this->belongsToMany(Event::class, 'site_events')
-            ->withPivot(['id', 'sort_order'])
-            ->withTimestamps()
-            ->orderByPivot('sort_order');
+        return $this->hasMany(SiteSupportContact::class);
     }
 
     /**
-     * @return BelongsToMany<News, $this>
+     * @return HasMany<News, $this>
      */
-    public function news(): BelongsToMany
+    public function newsItems(): HasMany
     {
-        return $this->belongsToMany(News::class, 'site_news')
-            ->withPivot(['id', 'sort_order'])
-            ->withTimestamps()
-            ->orderByPivot('sort_order');
+        return $this->hasMany(News::class);
     }
 
     /**
@@ -131,27 +116,15 @@ class Site extends Model
     }
 
     /**
-     * @return BelongsTo<User, $this>
-     */
-    public function updater(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    /**
-     * Branding is complete when logo, favicon, header and footer are all saved.
+     * Branding is complete when logo and navigation are saved.
      */
     public function isBrandingComplete(): bool
     {
-        if (! filled($this->logo) || ! filled($this->favicon)) {
+        if (! filled($this->logo)) {
             return false;
         }
 
-        if (! is_array($this->header) || $this->header === []) {
-            return false;
-        }
-
-        if (! is_array($this->footer) || $this->footer === []) {
+        if (! is_array($this->navigation) || $this->navigation === []) {
             return false;
         }
 
