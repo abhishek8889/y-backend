@@ -114,6 +114,7 @@ return new class extends Migration
                 ->constrained('sites')
                 ->nullOnDelete();
 
+            $table->string('featured_image')->nullable();
             $table->string('headline');
             $table->string('slug');
             $table->text('excerpt')->nullable();
