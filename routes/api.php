@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\Organisation\EventController;
 use App\Http\Controllers\Api\Organisation\OrderController;
 use App\Http\Controllers\Api\Organisation\OrganisationController;
 use App\Http\Controllers\Api\Organisation\OrgStripeController;
+use App\Http\Controllers\Api\Organisation\SiteBannerController;
+use App\Http\Controllers\Api\Organisation\SiteCategoryController;
 use App\Http\Controllers\Api\Organisation\SiteController;
 use App\Http\Controllers\Api\Organisation\SiteNewsController;
 use App\Http\Controllers\Api\Organisation\SiteSupportContactController;
@@ -20,6 +22,7 @@ use App\Http\Controllers\Api\Public\AuthController as PublicAuthController;
 use App\Http\Controllers\Api\Public\BookingController as PublicBookingController;
 use App\Http\Controllers\Api\Public\EventController as PublicEventController;
 use App\Http\Controllers\Api\Public\OrderController as PublicOrderController;
+use App\Http\Controllers\Api\Public\ResolveHostnameController;
 use App\Http\Controllers\Api\Public\TimezoneController as PublicTimezoneController;
 use App\Http\Controllers\Api\Public\WishlistController as PublicWishlistController;
 use App\Http\Controllers\Api\Webhooks\Stripe\StripeAccountWebhook;
@@ -76,6 +79,8 @@ Route::prefix('public')->group(function () {
     });
 
     Route::get('/timezones', [PublicTimezoneController::class, 'list']);
+
+    Route::get('/resolve-hostname', ResolveHostnameController::class);
 
     Route::post('/send-login-otp', [PublicAuthController::class, 'sendLoginOtp'])
         ->middleware('throttle:login');
@@ -219,6 +224,18 @@ Route::middleware('jwt')->group(function () {
                 Route::delete('/delete/{contact_id}', [SiteSupportContactController::class, 'delete'])
                     ->middleware('organisation.permission:org_clubsites.update,org_clubsites.delete');
             });
+
+            Route::prefix('banner')->group(function () {
+                Route::get('/', [SiteBannerController::class, 'show'])
+                    ->middleware('organisation.permission:org_clubsites.read,org_clubsites.create,org_clubsites.update');
+                Route::post('/save', [SiteBannerController::class, 'save'])
+                    ->middleware('organisation.permission:org_clubsites.create,org_clubsites.update');
+            });
+
+            Route::get('/category', [SiteCategoryController::class, 'show'])
+                ->middleware('organisation.permission:org_clubsites.read,org_clubsites.create,org_clubsites.update');
+            Route::post('/category-update', [SiteCategoryController::class, 'update'])
+                ->middleware('organisation.permission:org_clubsites.create,org_clubsites.update');
 
             Route::post('/{site_id}/update-domain', [SiteController::class, 'updateDomain'])
                 ->middleware('organisation.permission:org_clubsites.update');

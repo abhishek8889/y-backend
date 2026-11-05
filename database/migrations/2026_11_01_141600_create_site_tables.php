@@ -88,6 +88,7 @@ return new class extends Migration
                 ->cascadeOnDelete();
 
             $table->string('feature_type')->default(SiteBannerFeatureTypeEnum::CUSTOM->value);
+            $table->unsignedBigInteger('feature_target_id')->nullable()->after('feature_type');
             $table->string('feature_image_target')
                 ->default(SiteBannerFeatureImageTargetEnum::CUSTOM_UPLOAD->value);
             $table->string('custom_headline')->nullable()->comment('Used when feature_type is custom');

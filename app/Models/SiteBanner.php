@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $site_id
  * @property SiteBannerFeatureTypeEnum $feature_type
+ * @property int|null $feature_target_id
  * @property SiteBannerFeatureImageTargetEnum $feature_image_target
  * @property string|null $custom_headline
  * @property string|null $image_url
@@ -24,6 +25,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'site_id',
     'feature_type',
+    'feature_target_id',
     'feature_image_target',
     'custom_headline',
     'image_url',
@@ -39,6 +41,7 @@ class SiteBanner extends Model
     {
         return [
             'feature_type' => SiteBannerFeatureTypeEnum::class,
+            'feature_target_id' => 'integer',
             'feature_image_target' => SiteBannerFeatureImageTargetEnum::class,
         ];
     }

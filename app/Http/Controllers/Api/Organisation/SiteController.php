@@ -65,13 +65,16 @@ class SiteController extends Controller
                 'site' => SiteListResource::make($response['site']),
             ];
 
+            // Always return DNS payload after publish (status=active) so the UI can show instructions.
             if ($response['verified'] !== null) {
                 $payload['dns_records'] = $response['dns_records'];
                 $payload['verified'] = $response['verified'];
             }
 
             return $this->success(
-                __('messages.site_updated'),
+                $response['verified'] !== null
+                    ? __('messages.site_published')
+                    : __('messages.site_updated'),
                 $payload,
             );
         } catch (Throwable $exception) {

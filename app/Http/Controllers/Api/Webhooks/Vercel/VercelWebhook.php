@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Api\Webhooks\Vercel;
 
 use App\Enum\SiteDomainStatusEnum;
-use App\Enum\SiteStatusEnum;
 use App\Exceptions\ServiceException;
 use App\Http\Controllers\Controller;
 use App\Models\SiteDomain;
-use App\Services\VercelService;
+use App\Services\SiteDomainConnectivityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -29,7 +28,7 @@ use Throwable;
 class VercelWebhook extends Controller
 {
     public function __construct(
-        private readonly VercelService $vercel,
+        private readonly SiteDomainConnectivityService $domainConnectivity,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -100,34 +99,14 @@ class VercelWebhook extends Controller
             return false;
         }
 
-        $status = $this->vercel->getDomainStatus($hostname);
+        $synced = $this->domainConnectivity->refreshAndSync($domain);
 
-        $domainStatus = match ($status['status']) {
-            'active' => SiteDomainStatusEnum::ACTIVE,
-            'pending_verification' => SiteDomainStatusEnum::PENDING_VERIFICATION,
-            'pending_dns' => SiteDomainStatusEnum::PENDING_DNS,
-            default => SiteDomainStatusEnum::PENDING_DNS,
-        };
-
-        $domain->fill([
-            'status' => $domainStatus,
-            'vercel_added' => true,
-            'dns_instructions' => $status['dns_records'] ?? $domain->dns_instructions,
-            'verified_at' => ! empty($status['verified'])
-                ? ($domain->verified_at ?? now())
-                : $domain->verified_at,
-            'activated_at' => $domainStatus === SiteDomainStatusEnum::ACTIVE
-                ? ($domain->activated_at ?? now())
-                : null,
-            'last_error' => null,
+        Log::channel('vercel_webhook')->info('Synced domain from Vercel webhook', [
+            'hostname' => $hostname,
+            'status' => $synced['status'],
+            'verified' => $synced['verified'],
+            'found_on_vercel' => $synced['found_on_vercel'],
         ]);
-        $domain->save();
-
-        if ($domainStatus === SiteDomainStatusEnum::ACTIVE) {
-            $domain->site?->update([
-                'status' => SiteStatusEnum::ACTIVE,
-            ]);
-        }
 
         return true;
     }
@@ -144,15 +123,21 @@ class VercelWebhook extends Controller
             return false;
         }
 
-        $domain->update([
-            'status' => SiteDomainStatusEnum::PENDING_VERIFICATION,
-            'activated_at' => null,
-            'last_error' => 'Domain became unverified on Vercel.',
-        ]);
+        // Prefer a live Vercel status pull; fall back to local unverified flags.
+        try {
+            $this->domainConnectivity->refreshAndSync($domain);
+        } catch (Throwable $exception) {
+            Log::channel('vercel_webhook')->warning('Vercel status pull failed on unverified event', [
+                'hostname' => $hostname,
+                'message' => $exception->getMessage(),
+            ]);
 
-        $domain->site?->update([
-            'status' => SiteStatusEnum::DRAFT,
-        ]);
+            $domain->update([
+                'status' => SiteDomainStatusEnum::PENDING_VERIFICATION,
+                'activated_at' => null,
+                'last_error' => 'Domain became unverified on Vercel.',
+            ]);
+        }
 
         return true;
     }
@@ -182,10 +167,6 @@ class VercelWebhook extends Controller
             'last_error' => is_string($error) ? $error : 'SSL certificate issuance failed on Vercel.',
         ]);
 
-        $domain->site?->update([
-            'status' => SiteStatusEnum::DRAFT,
-        ]);
-
         return true;
     }
 
@@ -201,15 +182,10 @@ class VercelWebhook extends Controller
             return false;
         }
 
-        $domain->update([
-            'status' => SiteDomainStatusEnum::FAILED,
-            'vercel_added' => false,
-            'activated_at' => null,
-            'last_error' => 'Domain was deleted from Vercel.',
-        ]);
+        $this->domainConnectivity->markMissingOnVercel($domain);
 
-        $domain->site?->update([
-            'status' => SiteStatusEnum::DRAFT,
+        $domain->update([
+            'last_error' => 'Domain was deleted from Vercel.',
         ]);
 
         return true;
