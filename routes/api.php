@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\Public\AuthController as PublicAuthController;
 use App\Http\Controllers\Api\Public\BookingController as PublicBookingController;
 use App\Http\Controllers\Api\Public\EventController as PublicEventController;
+use App\Http\Controllers\Api\Public\MicrositeController as PublicMicrositeController;
 use App\Http\Controllers\Api\Public\OrderController as PublicOrderController;
 use App\Http\Controllers\Api\Public\ResolveHostnameController;
 use App\Http\Controllers\Api\Public\TimezoneController as PublicTimezoneController;
@@ -81,6 +82,10 @@ Route::prefix('public')->group(function () {
     Route::get('/timezones', [PublicTimezoneController::class, 'list']);
 
     Route::get('/resolve-hostname', ResolveHostnameController::class);
+
+    Route::get('/get-home-category-events', [PublicMicrositeController::class, 'getHomeCategoryEvents']);
+    Route::get('/get-home-category-news', [PublicMicrositeController::class, 'getHomeCategoryNews']);
+    Route::get('/get-support-contacts', [PublicMicrositeController::class, 'getSupportContacts']);
 
     Route::post('/send-login-otp', [PublicAuthController::class, 'sendLoginOtp'])
         ->middleware('throttle:login');
