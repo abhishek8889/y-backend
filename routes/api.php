@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\Organisation\SiteBannerController;
 use App\Http\Controllers\Api\Organisation\SiteCategoryController;
 use App\Http\Controllers\Api\Organisation\SiteController;
 use App\Http\Controllers\Api\Organisation\SiteNewsController;
+use App\Http\Controllers\Api\Organisation\SiteSocialLinksController;
 use App\Http\Controllers\Api\Organisation\SiteSupportContactController;
 use App\Http\Controllers\Api\Organisation\RolePermissionController;
 use App\Http\Controllers\Api\Organisation\StaffMemberController;
@@ -235,6 +236,15 @@ Route::middleware('jwt')->group(function () {
                     ->middleware('organisation.permission:org_clubsites.read,org_clubsites.create,org_clubsites.update');
                 Route::post('/save', [SiteBannerController::class, 'save'])
                     ->middleware('organisation.permission:org_clubsites.create,org_clubsites.update');
+            });
+
+            Route::prefix('social-links')->group(function () {
+                Route::get('/', [SiteSocialLinksController::class, 'show'])
+                    ->middleware('organisation.permission:org_clubsites.read,org_clubsites.create,org_clubsites.update');
+                Route::post('/save', [SiteSocialLinksController::class, 'save'])
+                    ->middleware('organisation.permission:org_clubsites.create,org_clubsites.update');
+                Route::post('/update', [SiteSocialLinksController::class, 'update'])
+                    ->middleware('organisation.permission:org_clubsites.update');
             });
 
             Route::get('/category', [SiteCategoryController::class, 'show'])

@@ -95,6 +95,9 @@ class PublicHostResolutionResource extends JsonResource
                             'event_category' => 'off',
                             'news_category' => 'off',
                         ],
+                    'social_links' => is_array($site->social_links)
+                        ? $site->social_links
+                        : (object) [],
                 ],
             'domain' => $domain === null
                 ? null

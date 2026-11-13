@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $email
  * @property string|null $phone
  * @property StatusEnum $status
+ * @property bool $show_in_footer
  * @property int|null $created_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -25,6 +26,7 @@ use Illuminate\Support\Carbon;
     'email',
     'phone',
     'status',
+    'show_in_footer',
     'created_by',
 ])]
 class SiteSupportContact extends Model
@@ -36,6 +38,7 @@ class SiteSupportContact extends Model
     {
         return [
             'status' => StatusEnum::class,
+            'show_in_footer' => 'boolean',
         ];
     }
 

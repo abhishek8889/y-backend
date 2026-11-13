@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $logo
  * @property array<string, mixed>|null $navigation
  * @property array<string, mixed>|null $feature_object
+ * @property array<string, string>|null $social_links
  * @property int|null $created_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -35,6 +36,7 @@ use Illuminate\Support\Carbon;
     'logo',
     'navigation',
     'feature_object',
+    'social_links',
     'created_by',
 ])]
 class Site extends Model
@@ -48,6 +50,7 @@ class Site extends Model
             'status' => SiteStatusEnum::class,
             'navigation' => 'array',
             'feature_object' => 'array',
+            'social_links' => 'array',
         ];
     }
 

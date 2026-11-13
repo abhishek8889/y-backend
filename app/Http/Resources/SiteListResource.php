@@ -33,6 +33,7 @@ class SiteListResource extends JsonResource
                 'event_category' => 'off',
                 'news_category' => 'off',
             ],
+            'social_links' => is_array($this->social_links) ? $this->social_links : (object) [],
             'hostname' => $domain?->hostname,
             'domain' => $domain === null
                 ? null

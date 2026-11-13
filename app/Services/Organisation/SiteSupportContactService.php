@@ -85,7 +85,8 @@ class SiteSupportContactService extends Service
      *     department_name: string,
      *     email?: string|null,
      *     phone?: string|null,
-     *     status?: string|null
+     *     status?: string|null,
+     *     show_in_footer?: bool|null
      * }  $data
      * @return array{contact: SiteSupportContact}
      */
@@ -96,15 +97,27 @@ class SiteSupportContactService extends Service
 
         $status = StatusEnum::tryFrom((string) ($data['status'] ?? StatusEnum::ACTIVE->value))
             ?? StatusEnum::ACTIVE;
+        $showInFooter = (bool) ($data['show_in_footer'] ?? false);
 
         try {
-            $contact = DB::transaction(function () use ($actor, $siteId, $data, $status): SiteSupportContact {
+            $contact = DB::transaction(function () use (
+                $actor,
+                $siteId,
+                $data,
+                $status,
+                $showInFooter,
+            ): SiteSupportContact {
+                if ($showInFooter) {
+                    $this->clearFooterFlagsForSite($siteId);
+                }
+
                 return SiteSupportContact::query()->create([
                     'site_id' => $siteId,
                     'department_name' => (string) $data['department_name'],
                     'email' => $data['email'] ?? null,
                     'phone' => $data['phone'] ?? null,
                     'status' => $status,
+                    'show_in_footer' => $showInFooter,
                     'created_by' => $actor->id,
                 ]);
             });
@@ -129,7 +142,8 @@ class SiteSupportContactService extends Service
      *     department_name?: string,
      *     email?: string|null,
      *     phone?: string|null,
-     *     status?: string
+     *     status?: string,
+     *     show_in_footer?: bool
      * }  $data
      * @return array{contact: SiteSupportContact}
      */
@@ -163,10 +177,25 @@ class SiteSupportContactService extends Service
             $updates['status'] = StatusEnum::from((string) $data['status']);
         }
 
+        if (array_key_exists('show_in_footer', $data)) {
+            $updates['show_in_footer'] = (bool) $data['show_in_footer'];
+        }
+
         try {
             if ($updates !== []) {
-                $contact->fill($updates);
-                $contact->save();
+                DB::transaction(function () use ($contact, $updates): void {
+                    $siteId = (int) ($updates['site_id'] ?? $contact->site_id);
+                    $showInFooter = array_key_exists('show_in_footer', $updates)
+                        ? (bool) $updates['show_in_footer']
+                        : (bool) $contact->show_in_footer;
+
+                    if ($showInFooter) {
+                        $this->clearFooterFlagsForSite($siteId, (int) $contact->id);
+                    }
+
+                    $contact->fill($updates);
+                    $contact->save();
+                });
             }
         } catch (Throwable $exception) {
             report($exception);
@@ -181,6 +210,18 @@ class SiteSupportContactService extends Service
         return [
             'contact' => $contact->fresh() ?? $contact,
         ];
+    }
+
+    private function clearFooterFlagsForSite(int $siteId, ?int $exceptContactId = null): void
+    {
+        SiteSupportContact::query()
+            ->where('site_id', $siteId)
+            ->where('show_in_footer', true)
+            ->when(
+                $exceptContactId !== null,
+                fn ($query) => $query->whereKeyNot($exceptContactId),
+            )
+            ->update(['show_in_footer' => false]);
     }
 
     /**

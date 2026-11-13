@@ -23,6 +23,7 @@ class SiteSupportContactResource extends JsonResource
             'email' => $this->email,
             'phone' => $this->phone,
             'status' => $this->status?->value ?? $this->status,
+            'show_in_footer' => (bool) $this->show_in_footer,
             'created_by' => $this->created_by,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

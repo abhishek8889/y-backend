@@ -28,6 +28,7 @@ class UpdateSiteSupportContactRequest extends FormRequest
                 StatusEnum::ACTIVE->value,
                 StatusEnum::INACTIVE->value,
             ])],
+            'show_in_footer' => ['sometimes', 'required', 'boolean'],
         ];
     }
 
@@ -54,6 +55,7 @@ class UpdateSiteSupportContactRequest extends FormRequest
             'email' => 'email',
             'phone' => 'phone',
             'status' => 'status',
+            'show_in_footer' => 'show in footer',
         ];
     }
 }

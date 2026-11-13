@@ -48,6 +48,9 @@ return new class extends Migration
             $table->json('feature_object')->nullable()->comment(
                 'Site feature toggles, e.g. {"event_category":"on","news_category":"on"}'
             );
+            $table->json('social_links')->nullable()->comment(
+                'Social platform map, e.g. {"facebook":"https://...","instagram":"https://..."}'
+            );
 
             $table->foreignId('created_by')
                 ->nullable()
@@ -168,6 +171,7 @@ return new class extends Migration
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
             $table->string('status')->default(StatusEnum::ACTIVE->value);
+            $table->boolean('show_in_footer')->default(false);
 
             $table->foreignId('created_by')
                 ->nullable()
@@ -177,6 +181,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['site_id', 'status']);
+            $table->index(['site_id', 'show_in_footer']);
         });
     }
 

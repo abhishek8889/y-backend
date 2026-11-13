@@ -28,6 +28,7 @@ class StoreSiteSupportContactRequest extends FormRequest
                 StatusEnum::ACTIVE->value,
                 StatusEnum::INACTIVE->value,
             ])],
+            'show_in_footer' => ['nullable', 'boolean'],
         ];
     }
 
@@ -55,6 +56,7 @@ class StoreSiteSupportContactRequest extends FormRequest
             'email' => 'email',
             'phone' => 'phone',
             'status' => 'status',
+            'show_in_footer' => 'show in footer',
         ];
     }
 }
