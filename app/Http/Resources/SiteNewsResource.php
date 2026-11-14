@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enum\NewsStatusEnum;
 use App\Models\News;
 use App\Services\MediaService;
 use Illuminate\Http\Request;
@@ -22,6 +23,8 @@ class SiteNewsResource extends JsonResource
             'organisation_id' => $this->organisation_id,
             'site_id' => $this->site_id,
             'featured_image' => $this->mediaAsset($this->featured_image),
+            'author' => $this->author,
+            'content_role' => $this->content_role,
             'headline' => $this->headline,
             'slug' => $this->slug,
             'excerpt' => $this->excerpt,
@@ -29,6 +32,10 @@ class SiteNewsResource extends JsonResource
             'linked_event_id' => $this->linked_event_id,
             'status' => $this->status?->value ?? $this->status,
             'published_at' => $this->published_at?->toIso8601String(),
+            // Convenience for FE: when scheduled, this is the same as published_at.
+            'scheduled_to' => $this->status === NewsStatusEnum::SCHEDULED
+                ? $this->published_at?->toIso8601String()
+                : null,
             'created_by' => $this->created_by,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

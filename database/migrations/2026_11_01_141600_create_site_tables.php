@@ -46,7 +46,7 @@ return new class extends Migration
             $table->string('logo')->nullable();
             $table->json('navigation')->nullable();
             $table->json('feature_object')->nullable()->comment(
-                'Site feature toggles, e.g. {"event_category":"on","news_category":"on"}'
+                'Site feature toggles, e.g. {"event_category":"on","news_category":"on","team_member_category":"off"}'
             );
             $table->json('social_links')->nullable()->comment(
                 'Social platform map, e.g. {"facebook":"https://...","instagram":"https://..."}'
@@ -118,6 +118,8 @@ return new class extends Migration
                 ->nullOnDelete();
 
             $table->string('featured_image')->nullable();
+            $table->string('author', 255)->nullable();
+            $table->text('content_role')->nullable()->comment('e.g. announcement, recap');
             $table->string('headline');
             $table->string('slug');
             $table->text('excerpt')->nullable();
@@ -129,7 +131,9 @@ return new class extends Migration
                 ->nullOnDelete();
 
             $table->string('status')->default(NewsStatusEnum::DRAFT->value);
-            $table->timestamp('published_at')->nullable();
+            $table->timestamp('published_at')->nullable()->comment(
+                'Go-live time. For status=scheduled this is the scheduled time; for published it is when it went live.'
+            );
 
             $table->foreignId('created_by')
                 ->nullable()

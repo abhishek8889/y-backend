@@ -24,6 +24,7 @@ class UpdateSiteCategoryRequest extends FormRequest
             'feature_object' => ['required', 'array'],
             'feature_object.event_category' => ['required', 'string', Rule::in(['on', 'off'])],
             'feature_object.news_category' => ['required', 'string', Rule::in(['on', 'off'])],
+            'feature_object.team_member_category' => ['required', 'string', Rule::in(['on', 'off'])],
             'categories' => ['nullable', 'array'],
             'categories.*.category_type' => [
                 'required',
@@ -44,6 +45,7 @@ class UpdateSiteCategoryRequest extends FormRequest
             'feature_object' => 'feature toggles',
             'feature_object.event_category' => 'events section',
             'feature_object.news_category' => 'news section',
+            'feature_object.team_member_category' => 'team members section',
             'categories' => 'categories',
             'categories.*.category_type' => 'category type',
             'categories.*.category_id' => 'category',

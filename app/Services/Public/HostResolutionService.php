@@ -56,6 +56,7 @@ class HostResolutionService extends Service
             ->with([
                 'site.organisation',
                 'site.banners' => fn ($query) => $query->orderBy('id'),
+                'site.footerSupportContact',
             ])
             ->first();
 
@@ -135,6 +136,7 @@ class HostResolutionService extends Service
             ? collect()
             : News::query()
                 ->whereIn('id', $newsIds)
+                ->publiclyVisible()
                 ->get()
                 ->keyBy('id');
 

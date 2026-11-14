@@ -26,7 +26,7 @@ class SiteCategoryService extends Service
     /**
      * @return array{
      *     site: Site,
-     *     feature_object: array{event_category: string, news_category: string},
+     *     feature_object: array{event_category: string, news_category: string, team_member_category: string},
      *     categories: Collection<int, SiteCategory>
      * }
      */
@@ -53,12 +53,12 @@ class SiteCategoryService extends Service
      *
      * @param  array{
      *     site_id: int,
-     *     feature_object: array{event_category: string, news_category: string},
+     *     feature_object: array{event_category: string, news_category: string, team_member_category: string},
      *     categories?: list<array{category_type: string, category_id: int}>|null
      * }  $data
      * @return array{
      *     site: Site,
-     *     feature_object: array{event_category: string, news_category: string},
+     *     feature_object: array{event_category: string, news_category: string, team_member_category: string},
      *     categories: Collection<int, SiteCategory>
      * }
      */
@@ -149,7 +149,7 @@ class SiteCategoryService extends Service
 
     /**
      * @param  mixed  $value
-     * @return array{event_category: string, news_category: string}
+     * @return array{event_category: string, news_category: string, team_member_category: string}
      */
     private function normalizeFeatureObject(mixed $value): array
     {
@@ -158,6 +158,7 @@ class SiteCategoryService extends Service
         return [
             'event_category' => ($payload['event_category'] ?? 'off') === 'on' ? 'on' : 'off',
             'news_category' => ($payload['news_category'] ?? 'off') === 'on' ? 'on' : 'off',
+            'team_member_category' => ($payload['team_member_category'] ?? 'off') === 'on' ? 'on' : 'off',
         ];
     }
 

@@ -29,10 +29,7 @@ class SiteListResource extends JsonResource
             'status' => $this->status?->value ?? $this->status,
             'logo' => $this->mediaAsset($this->logo),
             'navigation' => is_array($this->navigation) ? array_values($this->navigation) : [],
-            'feature_object' => is_array($this->feature_object) ? $this->feature_object : [
-                'event_category' => 'off',
-                'news_category' => 'off',
-            ],
+            'feature_object' => $this->normalizeFeatureObject($this->feature_object),
             'social_links' => is_array($this->social_links) ? $this->social_links : (object) [],
             'hostname' => $domain?->hostname,
             'domain' => $domain === null
@@ -62,6 +59,20 @@ class SiteListResource extends JsonResource
             'created_by' => $this->created_by,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @return array{event_category: string, news_category: string, team_member_category: string}
+     */
+    private function normalizeFeatureObject(mixed $value): array
+    {
+        $payload = is_array($value) ? $value : [];
+
+        return [
+            'event_category' => ($payload['event_category'] ?? 'off') === 'on' ? 'on' : 'off',
+            'news_category' => ($payload['news_category'] ?? 'off') === 'on' ? 'on' : 'off',
+            'team_member_category' => ($payload['team_member_category'] ?? 'off') === 'on' ? 'on' : 'off',
         ];
     }
 

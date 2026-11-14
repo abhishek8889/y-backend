@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('media:purge-tmp')->hourly();
 Schedule::command('organiser:release-reserved-balances')->daily();
+Schedule::command('news:publish-due')->everyMinute();

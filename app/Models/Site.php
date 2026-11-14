@@ -103,6 +103,26 @@ class Site extends Model
     }
 
     /**
+     * Footer contact for the site (only one should have show_in_footer=true).
+     *
+     * @return HasOne<SiteSupportContact, $this>
+     */
+    public function footerSupportContact(): HasOne
+    {
+        return $this->hasOne(SiteSupportContact::class)
+            ->where('show_in_footer', true)
+            ->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<OurTeamMember, $this>
+     */
+    public function teamMembers(): HasMany
+    {
+        return $this->hasMany(OurTeamMember::class);
+    }
+
+    /**
      * @return HasMany<News, $this>
      */
     public function newsItems(): HasMany

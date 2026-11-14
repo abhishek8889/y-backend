@@ -7,6 +7,7 @@ use App\Enum\SiteBannerFeatureImageTargetEnum;
 use App\Enum\SiteBannerFeatureTypeEnum;
 use App\Enum\SiteDomainStatusEnum;
 use App\Enum\SiteStatusEnum;
+use App\Enum\StatusEnum;
 use App\Models\Event;
 use App\Models\EventImage;
 use App\Models\News;
@@ -14,6 +15,7 @@ use App\Models\Organisation;
 use App\Models\Site;
 use App\Models\SiteBanner;
 use App\Models\SiteDomain;
+use App\Models\SiteSupportContact;
 use App\Services\MediaService;
 use App\Support\UniqueIdGenerator;
 use Illuminate\Support\Carbon;
@@ -76,6 +78,24 @@ test('published microsite hostname resolves with organisation and site', functio
         'vercel_added' => true,
     ]);
 
+    SiteSupportContact::query()->create([
+        'site_id' => $site->id,
+        'department_name' => 'Cleaning Department',
+        'email' => 'cleaningsupport@yopmail.com',
+        'phone' => '+44123412343',
+        'status' => StatusEnum::ACTIVE,
+        'show_in_footer' => true,
+    ]);
+
+    SiteSupportContact::query()->create([
+        'site_id' => $site->id,
+        'department_name' => 'Hidden Desk',
+        'email' => 'hidden@yopmail.com',
+        'phone' => '+44000000000',
+        'status' => StatusEnum::ACTIVE,
+        'show_in_footer' => false,
+    ]);
+
     test()->getJson('/api/public/resolve-hostname?hostname=Club.Example.com')
         ->assertOk()
         ->assertJsonPath('data.host_type', 'microsite')
@@ -88,6 +108,12 @@ test('published microsite hostname resolves with organisation and site', functio
         ->assertJsonPath('data.site.logo.path', 'sites/logo.png')
         ->assertJsonPath('data.site.navigation.0.name', 'Home')
         ->assertJsonPath('data.site.feature_object.event_category', 'on')
+        ->assertJsonPath('data.site.feature_object.news_category', 'off')
+        ->assertJsonPath('data.site.feature_object.team_member_category', 'off')
+        ->assertJsonPath('data.site.support_contact.department_name', 'Cleaning Department')
+        ->assertJsonPath('data.site.support_contact.email', 'cleaningsupport@yopmail.com')
+        ->assertJsonPath('data.site.support_contact.phone', '+44123412343')
+        ->assertJsonPath('data.site.support_contact.show_in_footer', true)
         ->assertJsonPath('data.domain.hostname', 'club.example.com');
 });
 

@@ -73,7 +73,9 @@ class SiteNewsService extends Service
                     $query->where(function ($inner) use ($like): void {
                         $inner->where('headline', 'like', $like)
                             ->orWhere('slug', 'like', $like)
-                            ->orWhere('excerpt', 'like', $like);
+                            ->orWhere('excerpt', 'like', $like)
+                            ->orWhere('author', 'like', $like)
+                            ->orWhere('content_role', 'like', $like);
                     });
                 },
             )
@@ -92,13 +94,16 @@ class SiteNewsService extends Service
      * @param  array{
      *     site_id?: int|null,
      *     featured_image?: string|null,
+     *     author?: string|null,
+     *     content_role?: string|null,
      *     headline: string,
      *     slug?: string|null,
      *     excerpt?: string|null,
      *     description?: string|null,
      *     linked_event_id?: int|null,
      *     status?: string|null,
-     *     published_at?: string|null
+     *     published_at?: string|null,
+     *     scheduled_to?: string|null
      * }  $data
      * @return array{news: News}
      */
@@ -112,7 +117,12 @@ class SiteNewsService extends Service
         $status = NewsStatusEnum::tryFrom((string) ($data['status'] ?? NewsStatusEnum::DRAFT->value))
             ?? NewsStatusEnum::DRAFT;
 
-        $publishedAt = $this->resolvePublishedAt($status, $data['published_at'] ?? null);
+        $publishedAt = $this->resolvePublishedAt(
+            $status,
+            $data['published_at'] ?? null,
+            null,
+            $data['scheduled_to'] ?? null,
+        );
 
         $slug = $this->generateUniqueSlug(
             filled($data['slug'] ?? null) ? (string) $data['slug'] : (string) $data['headline'],
@@ -134,6 +144,8 @@ class SiteNewsService extends Service
                     'organisation_id' => $organisationId,
                     'site_id' => $siteId,
                     'featured_image' => null,
+                    'author' => $data['author'] ?? null,
+                    'content_role' => $data['content_role'] ?? null,
                     'headline' => (string) $data['headline'],
                     'slug' => $slug,
                     'excerpt' => $data['excerpt'] ?? null,
@@ -177,6 +189,8 @@ class SiteNewsService extends Service
      * @param  array{
      *     site_id?: int|null,
      *     featured_image?: string|null,
+     *     author?: string|null,
+     *     content_role?: string|null,
      *     headline?: string,
      *     slug?: string|null,
      *     excerpt?: string|null,
@@ -203,6 +217,14 @@ class SiteNewsService extends Service
                 $data['featured_image'] ?? null,
                 $news->featured_image,
             );
+        }
+
+        if (array_key_exists('author', $data)) {
+            $updates['author'] = $data['author'];
+        }
+
+        if (array_key_exists('content_role', $data)) {
+            $updates['content_role'] = $data['content_role'];
         }
 
         if (array_key_exists('headline', $data)) {
@@ -254,9 +276,18 @@ class SiteNewsService extends Service
     }
 
     /**
-     * Switch news between draft and published.
+     * Switch news between draft, scheduled, and published.
      *
-     * @param  array{status: string, published_at?: string|null}  $data
+     * Rules:
+     * - draft → published_at cleared
+     * - scheduled → published_at = scheduled_to (or published_at); stays scheduled until cron/query
+     * - published → published_at = now (or provided); visible immediately
+     *
+     * @param  array{
+     *     status: string,
+     *     published_at?: string|null,
+     *     scheduled_to?: string|null
+     * }  $data
      * @return array{news: News}
      */
     public function manageStatus(User $actor, int $newsId, array $data): array
@@ -269,11 +300,8 @@ class SiteNewsService extends Service
             $status,
             $data['published_at'] ?? null,
             $news->published_at,
+            $data['scheduled_to'] ?? null,
         );
-
-        if ($status === NewsStatusEnum::DRAFT) {
-            $publishedAt = null;
-        }
 
         $news->fill([
             'status' => $status,
@@ -383,24 +411,28 @@ class SiteNewsService extends Service
         return $id;
     }
 
+    /**
+     * Resolve go-live timestamp from status + request fields.
+     *
+     * - draft: null
+     * - scheduled: scheduled_to preferred, else published_at (required by FormRequest)
+     * - published: published_at if provided, else keep existing, else now()
+     */
     private function resolvePublishedAt(
         NewsStatusEnum $status,
         mixed $publishedAt,
         mixed $existingPublishedAt = null,
+        mixed $scheduledTo = null,
     ): mixed {
-        if ($status !== NewsStatusEnum::PUBLISHED) {
-            return filled($publishedAt) ? $publishedAt : null;
-        }
-
-        if (filled($publishedAt)) {
-            return $publishedAt;
-        }
-
-        if ($existingPublishedAt !== null) {
-            return $existingPublishedAt;
-        }
-
-        return now();
+        return match ($status) {
+            NewsStatusEnum::DRAFT => null,
+            NewsStatusEnum::SCHEDULED => filled($scheduledTo)
+                ? $scheduledTo
+                : (filled($publishedAt) ? $publishedAt : null),
+            NewsStatusEnum::PUBLISHED => filled($publishedAt)
+                ? $publishedAt
+                : ($existingPublishedAt ?? now()),
+        };
     }
 
     private function generateUniqueSlug(string $value, int $organisationId, ?int $ignoreNewsId = null): string

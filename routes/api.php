@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Organisation\OrgStripeController;
 use App\Http\Controllers\Api\Organisation\SiteBannerController;
 use App\Http\Controllers\Api\Organisation\SiteCategoryController;
 use App\Http\Controllers\Api\Organisation\SiteController;
+use App\Http\Controllers\Api\Organisation\OurTeamMemberController;
 use App\Http\Controllers\Api\Organisation\SiteNewsController;
 use App\Http\Controllers\Api\Organisation\SiteSocialLinksController;
 use App\Http\Controllers\Api\Organisation\SiteSupportContactController;
@@ -82,10 +83,15 @@ Route::prefix('public')->group(function () {
 
     Route::get('/timezones', [PublicTimezoneController::class, 'list']);
 
+    // ################## Public Microsite Routes ##################
     Route::get('/resolve-hostname', ResolveHostnameController::class);
-
     Route::get('/get-home-category-events', [PublicMicrositeController::class, 'getHomeCategoryEvents']);
     Route::get('/get-home-category-news', [PublicMicrositeController::class, 'getHomeCategoryNews']);
+    Route::get('/get-all-news', [PublicMicrositeController::class, 'getAllNews']);
+    Route::get('/get-news-detail/{slug}', [PublicMicrositeController::class, 'getNewsDetail']);
+    Route::get('/get-our-team-members', [PublicMicrositeController::class, 'getOurTeamMembers']);
+    Route::get('/team-members/detail/{member_unique_id}', [PublicMicrositeController::class, 'getOurTeamMemberDetail']);
+    Route::get('/get-venue-detail/{unique_id}', [PublicMicrositeController::class, 'getVenueDetail']);
     Route::get('/get-support-contacts', [PublicMicrositeController::class, 'getSupportContacts']);
 
     Route::post('/send-login-otp', [PublicAuthController::class, 'sendLoginOtp'])
@@ -228,6 +234,17 @@ Route::middleware('jwt')->group(function () {
                 Route::post('/update/{contact_id}', [SiteSupportContactController::class, 'update'])
                     ->middleware('organisation.permission:org_clubsites.update');
                 Route::delete('/delete/{contact_id}', [SiteSupportContactController::class, 'delete'])
+                    ->middleware('organisation.permission:org_clubsites.update,org_clubsites.delete');
+            });
+
+            Route::prefix('our-team-member')->group(function () {
+                Route::get('/list', [OurTeamMemberController::class, 'list'])
+                    ->middleware('organisation.permission:org_clubsites.read,org_clubsites.create,org_clubsites.update');
+                Route::post('/create', [OurTeamMemberController::class, 'create'])
+                    ->middleware('organisation.permission:org_clubsites.create,org_clubsites.update');
+                Route::post('/update/{member_id}', [OurTeamMemberController::class, 'update'])
+                    ->middleware('organisation.permission:org_clubsites.update');
+                Route::delete('/delete/{member_id}', [OurTeamMemberController::class, 'delete'])
                     ->middleware('organisation.permission:org_clubsites.update,org_clubsites.delete');
             });
 

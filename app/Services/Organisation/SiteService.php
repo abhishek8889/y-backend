@@ -87,6 +87,7 @@ class SiteService extends Service
                     'feature_object' => [
                         'event_category' => 'on',
                         'news_category' => 'on',
+                        'team_member_category' => 'off',
                     ],
                     'created_by' => $actor->id,
                 ]);

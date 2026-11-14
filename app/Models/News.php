@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enum\NewsStatusEnum;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -13,6 +14,8 @@ use Illuminate\Support\Carbon;
  * @property int $organisation_id
  * @property int|null $site_id
  * @property string|null $featured_image
+ * @property string|null $author
+ * @property string|null $content_role
  * @property string $headline
  * @property string $slug
  * @property string|null $excerpt
@@ -28,6 +31,8 @@ use Illuminate\Support\Carbon;
     'organisation_id',
     'site_id',
     'featured_image',
+    'author',
+    'content_role',
     'headline',
     'slug',
     'excerpt',
@@ -50,6 +55,33 @@ class News extends Model
             'status' => NewsStatusEnum::class,
             'published_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Publicly visible news:
+     * - published (optionally gated by published_at)
+     * - scheduled whose published_at has already passed (cron lag safety)
+     *
+     * @param  Builder<News>  $query
+     * @return Builder<News>
+     */
+    public function scopePubliclyVisible(Builder $query): Builder
+    {
+        $now = now();
+
+        return $query->where(function (Builder $outer) use ($now): void {
+            $outer->where(function (Builder $published) use ($now): void {
+                $published->where('status', NewsStatusEnum::PUBLISHED)
+                    ->where(function (Builder $when) use ($now): void {
+                        $when->whereNull('published_at')
+                            ->orWhere('published_at', '<=', $now);
+                    });
+            })->orWhere(function (Builder $scheduled) use ($now): void {
+                $scheduled->where('status', NewsStatusEnum::SCHEDULED)
+                    ->whereNotNull('published_at')
+                    ->where('published_at', '<=', $now);
+            });
+        });
     }
 
     /**

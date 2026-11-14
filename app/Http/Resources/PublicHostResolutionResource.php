@@ -11,6 +11,7 @@ use App\Models\Organisation;
 use App\Models\Site;
 use App\Models\SiteBanner;
 use App\Models\SiteDomain;
+use App\Models\SiteSupportContact;
 use App\Services\MediaService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -89,15 +90,11 @@ class PublicHostResolutionResource extends JsonResource
                     'navigation' => is_array($site->navigation)
                         ? array_values($site->navigation)
                         : [],
-                    'feature_object' => is_array($site->feature_object)
-                        ? $site->feature_object
-                        : [
-                            'event_category' => 'off',
-                            'news_category' => 'off',
-                        ],
+                    'feature_object' => $this->normalizeFeatureObject($site->feature_object),
                     'social_links' => is_array($site->social_links)
                         ? $site->social_links
                         : (object) [],
+                    'support_contact' => $this->mapFooterSupportContact($site),
                 ],
             'domain' => $domain === null
                 ? null
@@ -236,6 +233,44 @@ class PublicHostResolutionResource extends JsonResource
         return [
             'image_url' => null,
             'media_type' => null,
+        ];
+    }
+
+    /**
+     * @return array{event_category: string, news_category: string, team_member_category: string}
+     */
+    private function normalizeFeatureObject(mixed $value): array
+    {
+        $payload = is_array($value) ? $value : [];
+
+        return [
+            'event_category' => ($payload['event_category'] ?? 'off') === 'on' ? 'on' : 'off',
+            'news_category' => ($payload['news_category'] ?? 'off') === 'on' ? 'on' : 'off',
+            'team_member_category' => ($payload['team_member_category'] ?? 'off') === 'on' ? 'on' : 'off',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function mapFooterSupportContact(Site $site): ?array
+    {
+        /** @var SiteSupportContact|null $contact */
+        $contact = $site->relationLoaded('footerSupportContact')
+            ? $site->footerSupportContact
+            : null;
+
+        if ($contact === null) {
+            return null;
+        }
+
+        return [
+            'id' => $contact->id,
+            'department_name' => $contact->department_name,
+            'email' => $contact->email,
+            'phone' => $contact->phone,
+            'status' => $contact->status?->value ?? $contact->status,
+            'show_in_footer' => (bool) $contact->show_in_footer,
         ];
     }
 

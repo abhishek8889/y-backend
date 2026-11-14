@@ -3,16 +3,17 @@
 namespace App\Services\Public;
 
 use App\Enum\EventStatusEnum;
-use App\Enum\NewsStatusEnum;
 use App\Enum\SiteCategoryTypeEnum;
 use App\Enum\SiteStatusEnum;
 use App\Http\Responses\CursorPaginatedResponse;
 use App\Enum\StatusEnum;
 use App\Models\Event;
 use App\Models\News;
+use App\Models\OurTeamMember;
 use App\Models\Site;
 use App\Models\SiteCategory;
 use App\Models\SiteSupportContact;
+use App\Models\Venue;
 use App\Services\Service;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use Symfony\Component\HttpFoundation\Response;
@@ -70,7 +71,7 @@ class MicrositeService extends Service
             ->whereIn('id', $newsIds)
             ->where('organisation_id', $site->organisation_id)
             ->where('site_id', $site->id)
-            ->where('status', NewsStatusEnum::PUBLISHED)
+            ->publiclyVisible()
             ->with('linkedEvent:id,unique_id,name,status')
             ->orderByDesc('published_at')
             ->orderByDesc('id')
@@ -96,6 +97,179 @@ class MicrositeService extends Service
             ->where('site_id', $site->id)
             ->where('status', StatusEnum::ACTIVE)
             ->orderBy('id')
+            ->cursorPaginate($perPage, ['*'], 'cursor', $filters['cursor'] ?? null);
+
+        return [
+            'paginator' => $paginator,
+        ];
+    }
+
+    /**
+     * All team members for a published microsite.
+     *
+     * @param  array{site_unique_id: string, per_page?: int|null, cursor?: string|null}  $filters
+     * @return array{paginator: CursorPaginator}
+     */
+    public function ourTeamMembers(array $filters): array
+    {
+        $site = $this->resolveActiveSite((string) $filters['site_unique_id']);
+        $perPage = CursorPaginatedResponse::resolvePerPage($filters['per_page'] ?? null);
+
+        $paginator = OurTeamMember::query()
+            ->where('site_id', $site->id)
+            ->orderBy('id')
+            ->cursorPaginate($perPage, ['*'], 'cursor', $filters['cursor'] ?? null);
+
+        return [
+            'paginator' => $paginator,
+        ];
+    }
+
+    /**
+     * Public news detail by slug for an active microsite.
+     *
+     * @param  array{site_unique_id: string}  $filters
+     * @return array{news: News}
+     */
+    public function newsDetail(string $slug, array $filters): array
+    {
+        $site = $this->resolveActiveSite((string) $filters['site_unique_id']);
+        $slug = trim($slug);
+
+        $news = News::query()
+            ->where('site_id', $site->id)
+            ->where('organisation_id', $site->organisation_id)
+            ->where('slug', $slug)
+            ->publiclyVisible()
+            ->with([
+                'linkedEvent.category:id,organisation_id,name,slug',
+                'linkedEvent.venue.venueType',
+                'linkedEvent.venue.address',
+                'linkedEvent.images' => fn ($query) => $query
+                    ->where('type', 'banner')
+                    ->orderBy('sort_order')
+                    ->orderBy('id'),
+            ])
+            ->first();
+
+        if ($news === null) {
+            $this->fail(
+                Response::HTTP_NOT_FOUND,
+                __('messages.site_news_not_found'),
+            );
+        }
+
+        return [
+            'news' => $news,
+        ];
+    }
+
+    /**
+     * Public venue detail by unique_id for an active microsite's organisation.
+     *
+     * @param  array{site_unique_id: string}  $filters
+     * @return array{venue: Venue}
+     */
+    public function venueDetail(string $uniqueId, array $filters): array
+    {
+        $site = $this->resolveActiveSite((string) $filters['site_unique_id']);
+        $uniqueId = trim($uniqueId);
+
+        $venue = Venue::query()
+            ->where('organisation_id', $site->organisation_id)
+            ->where('unique_id', $uniqueId)
+            ->where('status', StatusEnum::ACTIVE->value)
+            ->with([
+                'venueType',
+                'address',
+                'contacts',
+                'accessibility',
+                'logistics',
+                'facilities',
+                'suitableForOptions',
+                'images',
+            ])
+            ->first();
+
+        if ($venue === null) {
+            $this->fail(
+                Response::HTTP_NOT_FOUND,
+                __('messages.venue_not_found'),
+            );
+        }
+
+        return [
+            'venue' => $venue,
+        ];
+    }
+
+    /**
+     * Public team member detail by member_unique_id for an active microsite.
+     *
+     * @param  array{site_unique_id: string}  $filters
+     * @return array{member: OurTeamMember}
+     */
+    public function ourTeamMemberDetail(string $memberUniqueId, array $filters): array
+    {
+        $site = $this->resolveActiveSite((string) $filters['site_unique_id']);
+        $memberUniqueId = trim($memberUniqueId);
+
+        $member = OurTeamMember::query()
+            ->where('site_id', $site->id)
+            ->where('member_unique_id', $memberUniqueId)
+            ->with('user:id,first_name,last_name,email')
+            ->first();
+
+        if ($member === null) {
+            $this->fail(
+                Response::HTTP_NOT_FOUND,
+                __('messages.our_team_member_not_found'),
+            );
+        }
+
+        return [
+            'member' => $member,
+        ];
+    }
+
+    /**
+     * All published news for a microsite (not limited to home category selections).
+     *
+     * @param  array{
+     *     site_unique_id: string,
+     *     search?: string|null,
+     *     per_page?: int|null,
+     *     cursor?: string|null
+     * }  $filters
+     * @return array{paginator: CursorPaginator}
+     */
+    public function allNews(array $filters): array
+    {
+        $site = $this->resolveActiveSite((string) $filters['site_unique_id']);
+        $search = isset($filters['search']) ? trim((string) $filters['search']) : null;
+        $perPage = CursorPaginatedResponse::resolvePerPage($filters['per_page'] ?? null);
+
+        $paginator = News::query()
+            ->where('site_id', $site->id)
+            ->where('organisation_id', $site->organisation_id)
+            ->publiclyVisible()
+            ->when(
+                filled($search),
+                function ($query) use ($search): void {
+                    $like = '%'.$search.'%';
+                    $query->where(function ($inner) use ($like): void {
+                        $inner->where('headline', 'like', $like)
+                            ->orWhere('excerpt', 'like', $like)
+                            ->orWhere('description', 'like', $like)
+                            ->orWhere('slug', 'like', $like)
+                            ->orWhere('author', 'like', $like)
+                            ->orWhere('content_role', 'like', $like);
+                    });
+                },
+            )
+            ->with('linkedEvent:id,unique_id,name,status')
+            ->orderByDesc('published_at')
+            ->orderByDesc('id')
             ->cursorPaginate($perPage, ['*'], 'cursor', $filters['cursor'] ?? null);
 
         return [
