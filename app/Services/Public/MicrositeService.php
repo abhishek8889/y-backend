@@ -165,20 +165,40 @@ class MicrositeService extends Service
     }
 
     /**
-     * Public venue detail by unique_id for an active microsite's organisation.
+     * Public venue detail by unique_id.
      *
-     * @param  array{site_unique_id: string}  $filters
+     * - With site_unique_id: scoped to that active microsite's organisation
+     * - Without site_unique_id: any active venue belonging to an approved organisation
+     *
+     * @param  array{site_unique_id?: string|null}  $filters
      * @return array{venue: Venue}
      */
-    public function venueDetail(string $uniqueId, array $filters): array
+    public function venueDetail(string $uniqueId, array $filters = []): array
     {
-        $site = $this->resolveActiveSite((string) $filters['site_unique_id']);
         $uniqueId = trim($uniqueId);
+        $siteUniqueId = isset($filters['site_unique_id'])
+            ? trim((string) $filters['site_unique_id'])
+            : '';
+
+        $organisationId = null;
+        if ($siteUniqueId !== '') {
+            $organisationId = $this->resolveActiveSite($siteUniqueId)->organisation_id;
+        }
 
         $venue = Venue::query()
-            ->where('organisation_id', $site->organisation_id)
             ->where('unique_id', $uniqueId)
             ->where('status', StatusEnum::ACTIVE->value)
+            ->when(
+                $organisationId !== null,
+                fn ($query) => $query->where('organisation_id', $organisationId),
+            )
+            ->when(
+                $organisationId === null,
+                fn ($query) => $query->whereHas(
+                    'organisation',
+                    fn ($org) => $org->where('approve_status', true),
+                ),
+            )
             ->with([
                 'venueType',
                 'address',

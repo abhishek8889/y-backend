@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Public;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Public\GetAllNewsRequest;
+use App\Http\Requests\Public\GetVenueDetailRequest;
 use App\Http\Requests\Public\HomeCategoryListRequest;
 use App\Http\Requests\Public\MicrositeSiteUniqueIdRequest;
 use App\Http\Resources\EventListResource;
@@ -168,10 +169,12 @@ class MicrositeController extends Controller
     }
 
     /**
-     * Public venue detail by unique_id for a published microsite.
+     * Public venue detail by unique_id (marketplace or microsite).
+     *
+     * Query: site_unique_id optional — omit on marketplace, pass on microsite.
      */
     public function getVenueDetail(
-        MicrositeSiteUniqueIdRequest $request,
+        GetVenueDetailRequest $request,
         MicrositeService $microsite,
         string $unique_id,
     ): JsonResponse {

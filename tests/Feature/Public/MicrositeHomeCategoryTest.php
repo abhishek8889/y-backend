@@ -432,8 +432,11 @@ test('public get-venue-detail returns venue for the site organisation', function
         ->assertJsonPath('data.venue.venue_type.name', 'Arena')
         ->assertJsonPath('data.venue.address.city', 'Manchester');
 
+    // Marketplace: site_unique_id omitted
     test()->getJson('/api/public/get-venue-detail/'.$venue->unique_id)
-        ->assertUnprocessable();
+        ->assertOk()
+        ->assertJsonPath('data.venue.unique_id', $venue->unique_id)
+        ->assertJsonPath('data.venue.name', 'Main Arena');
 
     test()->getJson('/api/public/get-venue-detail/VENXXXX?site_unique_id='.$site->unique_id)
         ->assertNotFound()
