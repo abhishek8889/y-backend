@@ -17,8 +17,10 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property int|null $event_category_id
  * @property string|null $description
+ * @property string|null $terms_and_conditions
  * @property int|null $venue_id
  * @property int|null $capacity
+ * @property int|null $minimum_age_limit
  * @property Carbon|null $starts_at
  * @property Carbon|null $ends_at
  * @property string|null $timezone
@@ -37,8 +39,10 @@ use Illuminate\Support\Carbon;
     'name',
     'event_category_id',
     'description',
+    'terms_and_conditions',
     'venue_id',
     'capacity',
+    'minimum_age_limit',
     'starts_at',
     'ends_at',
     'timezone',
@@ -58,6 +62,7 @@ class Event extends Model
     {
         return [
             'capacity' => 'integer',
+            'minimum_age_limit' => 'integer',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'published_at' => 'datetime',

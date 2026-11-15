@@ -52,6 +52,8 @@ class PublicNewsDetailResource extends JsonResource
                         'unique_id' => $event->unique_id,
                         'name' => $event->name,
                         'description' => $event->description,
+                        'terms_and_conditions' => $event->terms_and_conditions,
+                        'minimum_age_limit' => $event->minimum_age_limit,
                         'starts_at' => $event->starts_at?->toIso8601String(),
                         'ends_at' => $event->ends_at?->toIso8601String(),
                         'timezone' => $event->timezone,

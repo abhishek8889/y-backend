@@ -18,6 +18,7 @@ return new class extends Migration
                 ->cascadeOnDelete();
             $table->string('unique_id')->unique();
             $table->string('name');
+            $table->string('badge_label', 255)->nullable();
             $table->decimal('price', 12, 2)->default(0);
             $table->unsignedInteger('quantity_cap');
             $table->dateTime('sale_starts_at')->nullable();

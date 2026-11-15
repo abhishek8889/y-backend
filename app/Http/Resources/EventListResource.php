@@ -20,6 +20,8 @@ class EventListResource extends JsonResource
             'id' => $this->id,
             'unique_id' => $this->unique_id,
             'name' => $this->name,
+            'minimum_age_limit' => $this->minimum_age_limit,
+            'terms_and_conditions' => $this->terms_and_conditions,
             'starts_at' => $this->starts_at,
             'ends_at' => $this->ends_at,
             'timezone' => $this->timezone,

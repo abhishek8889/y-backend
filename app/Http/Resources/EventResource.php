@@ -43,6 +43,7 @@ class EventResource extends JsonResource
                     : null,
             ),
             'description' => $this->description,
+            'terms_and_conditions' => $this->terms_and_conditions,
             'venue_id' => $this->venue_id,
             'venue' => $this->whenLoaded(
                 'venue',
@@ -51,6 +52,7 @@ class EventResource extends JsonResource
                     : null,
             ),
             'capacity' => $this->capacity,
+            'minimum_age_limit' => $this->minimum_age_limit,
             'booking_platform_fees_percentage' => $this->bookingPlatformFeesPercentage(),
             'starts_at' => $this->starts_at,
             'ends_at' => $this->ends_at,

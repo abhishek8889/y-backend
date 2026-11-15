@@ -28,6 +28,7 @@ return new class extends Migration
                 ->nullOnDelete();
 
             $table->text('description')->nullable();
+            $table->longText('terms_and_conditions')->nullable();
 
             $table->foreignId('venue_id')
                 ->nullable()
@@ -35,6 +36,9 @@ return new class extends Migration
                 ->nullOnDelete();
 
             $table->unsignedInteger('capacity')->nullable();
+            $table->unsignedTinyInteger('minimum_age_limit')
+                ->nullable()
+                ->comment('Minimum age required to attend (years)');
 
             $table->dateTime('starts_at')->comment('In UTC')->nullable();
             $table->dateTime('ends_at')->comment('In UTC')->nullable();

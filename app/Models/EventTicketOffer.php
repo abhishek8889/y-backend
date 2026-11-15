@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
  * @property int $event_ticket_id
  * @property string $unique_id
  * @property string $name
+ * @property string|null $badge_label
  * @property string $price
  * @property int $quantity_cap
  * @property Carbon|null $sale_starts_at
@@ -30,6 +31,7 @@ use Illuminate\Support\Carbon;
     'event_ticket_id',
     'unique_id',
     'name',
+    'badge_label',
     'price',
     'quantity_cap',
     'sale_starts_at',

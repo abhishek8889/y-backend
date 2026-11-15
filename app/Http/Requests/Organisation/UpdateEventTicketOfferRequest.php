@@ -23,6 +23,7 @@ class UpdateEventTicketOfferRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255'],
+            'badge_label' => ['nullable', 'string', 'max:255'],
             'price' => ['required', 'numeric', 'min:0'],
             'quantity_cap' => ['required', 'integer', 'min:1'],
             'sale_starts_at' => ['required', 'date'],
@@ -41,6 +42,7 @@ class UpdateEventTicketOfferRequest extends FormRequest
     {
         return [
             'name' => 'offer name',
+            'badge_label' => 'badge label',
             'price' => 'offer price',
             'quantity_cap' => 'offer quantity',
             'sale_starts_at' => 'sale start',

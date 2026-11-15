@@ -21,6 +21,7 @@ class EventTicketOfferResource extends JsonResource
             'event_ticket_id' => $this->event_ticket_id,
             'unique_id' => $this->unique_id,
             'name' => $this->name,
+            'badge_label' => $this->badge_label,
             'price' => $this->price,
             'quantity_cap' => $this->quantity_cap,
             'remaining_quantity' => $this->when(

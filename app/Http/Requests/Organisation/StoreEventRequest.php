@@ -25,8 +25,10 @@ class StoreEventRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'event_category_id' => ['nullable', 'integer', 'exists:event_categories,id'],
             'description' => ['nullable', 'string'],
+            'terms_and_conditions' => ['nullable', 'string'],
             'venue_id' => ['nullable', 'integer', 'exists:venues,id'],
             'capacity' => ['nullable', 'integer', 'min:0'],
+            'minimum_age_limit' => ['nullable', 'integer', 'min:0', 'max:120'],
             'starts_at' => ['nullable', 'date', 'after_or_equal:'.$nowUtc], // Expecting in UTC
             'ends_at' => ['nullable', 'date', 'after:starts_at', 'after_or_equal:'.$nowUtc], // Expecting in UTC
             'timezone' => ['nullable', 'string', 'max:100'],
@@ -48,7 +50,9 @@ class StoreEventRequest extends FormRequest
         return [
             'name' => 'event title',
             'event_category_id' => 'event category',
+            'terms_and_conditions' => 'terms and conditions',
             'venue_id' => 'venue',
+            'minimum_age_limit' => 'minimum age limit',
             'starts_at' => 'start date and time',
             'ends_at' => 'end date and time',
             'status' => 'event status',
