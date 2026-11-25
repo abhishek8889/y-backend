@@ -208,6 +208,8 @@ Route::middleware('jwt')->group(function () {
         Route::prefix('site')->group(function () {
             Route::get('/list', [SiteController::class, 'list'])
                 ->middleware('organisation.permission:org_clubsites.read,org_clubsites.create,org_clubsites.update');
+            Route::get('/get-microsite-list', [SiteController::class, 'getMicrositeList'])
+                ->middleware('organisation.permission:org_clubsites.read,org_clubsites.create,org_clubsites.update,org_news.read,org_news.create,org_news.update');
             Route::post('/create', [SiteController::class, 'create'])
                 ->middleware('organisation.permission:org_clubsites.create');
             Route::post('/update/{site_id}', [SiteController::class, 'update'])
@@ -215,15 +217,15 @@ Route::middleware('jwt')->group(function () {
 
             Route::prefix('news')->group(function () {
                 Route::get('/list', [SiteNewsController::class, 'list'])
-                    ->middleware('organisation.permission:org_clubsites.read,org_clubsites.create,org_clubsites.update');
+                    ->middleware('organisation.permission:org_news.read,org_news.create,org_news.update');
                 Route::post('/create', [SiteNewsController::class, 'create'])
-                    ->middleware('organisation.permission:org_clubsites.create,org_clubsites.update');
+                    ->middleware('organisation.permission:org_news.create,org_news.update');
                 Route::post('/update/{news_id}', [SiteNewsController::class, 'update'])
-                    ->middleware('organisation.permission:org_clubsites.update');
+                    ->middleware('organisation.permission:org_news.update');
                 Route::post('/manage-status/{news_id}', [SiteNewsController::class, 'manageStatus'])
-                    ->middleware('organisation.permission:org_clubsites.update');
+                    ->middleware('organisation.permission:org_news.update');
                 Route::delete('/delete/{news_id}', [SiteNewsController::class, 'delete'])
-                    ->middleware('organisation.permission:org_clubsites.update,org_clubsites.delete');
+                    ->middleware('organisation.permission:org_news.update,org_news.delete');
             });
 
             Route::prefix('support-contact')->group(function () {

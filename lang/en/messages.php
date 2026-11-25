@@ -261,6 +261,7 @@ return [
     'stripe_webhook_invalid_signature' => 'Invalid Stripe webhook signature.',
     'stripe_webhook_invalid_payload' => 'Invalid Stripe webhook payload.',
     'site_list' => 'Site list.',
+    'microsite_list' => 'Microsite list.',
     'site_created' => 'Site created as draft.',
     'site_create_failed' => 'Unable to create the site.',
     'site_updated' => 'Site updated.',

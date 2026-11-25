@@ -87,5 +87,9 @@ test('provisioning on a new organisation grants all organisation-scoped permissi
     );
     expect($role->permissions->pluck('name')->all())->toContain(
         PermissionEnum::EventsIssueOrderRefund->value,
+        PermissionEnum::NewsRead->value,
+        PermissionEnum::NewsCreate->value,
+        PermissionEnum::NewsUpdate->value,
+        PermissionEnum::NewsDelete->value,
     );
 });

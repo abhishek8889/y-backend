@@ -47,6 +47,27 @@ class SiteService extends Service
     }
 
     /**
+     * Lightweight microsite picker: id, name, hostname for the actor's organisation.
+     *
+     * @return array{sites: Collection<int, Site>}
+     */
+    public function micrositeList(User $actor): array
+    {
+        $organisation = $this->organisation->getOrganisationDetail($actor)['organisation'];
+
+        $sites = Site::query()
+            ->where('organisation_id', $organisation->id)
+            ->with('domain:id,site_id,hostname')
+            ->orderBy('name')
+            ->orderBy('id')
+            ->get(['id', 'name', 'organisation_id']);
+
+        return [
+            'sites' => $sites,
+        ];
+    }
+
+    /**
      * Create a draft site + domain row (name, hostname, optional template_id). No Vercel.
      *
      * @param  array{

@@ -32,6 +32,11 @@ enum PermissionEnum: string
     case SitesUpdate = 'org_clubsites.update';
     case SitesDelete = 'org_clubsites.delete';
 
+    case NewsRead = 'org_news.read';
+    case NewsCreate = 'org_news.create';
+    case NewsUpdate = 'org_news.update';
+    case NewsDelete = 'org_news.delete';
+
     case RolesRead = 'org_roles.read';
     case RolesCreate = 'org_roles.create';
     case RolesUpdate = 'org_roles.update';
@@ -81,6 +86,10 @@ enum PermissionEnum: string
             self::SitesCreate,
             self::SitesUpdate,
             self::SitesDelete,
+            self::NewsRead,
+            self::NewsCreate,
+            self::NewsUpdate,
+            self::NewsDelete,
             self::RolesRead,
             self::RolesCreate,
             self::RolesUpdate,
@@ -126,6 +135,11 @@ enum PermissionEnum: string
             self::SitesCreate => 'Create organisation clubsites',
             self::SitesUpdate => 'Update organisation clubsites',
             self::SitesDelete => 'Delete organisation clubsites',
+
+            self::NewsRead => 'Read organisation news',
+            self::NewsCreate => 'Create organisation news',
+            self::NewsUpdate => 'Update organisation news',
+            self::NewsDelete => 'Delete organisation news',
 
             self::RolesRead => 'Read organisation roles',
             self::RolesCreate => 'Create organisation roles',

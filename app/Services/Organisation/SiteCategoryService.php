@@ -242,7 +242,7 @@ class SiteCategoryService extends Service
         if ($newsIds !== []) {
             $validCount = News::query()
                 ->where('organisation_id', $organisationId)
-                ->where('site_id', $siteId)
+                // ->where('site_id', $siteId)
                 ->where('status', NewsStatusEnum::PUBLISHED)
                 ->whereIn('id', $newsIds)
                 ->count();

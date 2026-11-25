@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organisation\StoreSiteRequest;
 use App\Http\Requests\Organisation\UpdateSiteDomainRequest;
 use App\Http\Requests\Organisation\UpdateSiteRequest;
+use App\Http\Resources\MicrositeListResource;
 use App\Http\Resources\SiteListResource;
 use App\Services\Organisation\SiteService;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +27,25 @@ class SiteController extends Controller
                 __('messages.site_list'),
                 [
                     'sites' => SiteListResource::collection($response['sites']),
+                ],
+            );
+        } catch (Throwable $exception) {
+            return $this->failed($exception);
+        }
+    }
+
+    /**
+     * Lightweight microsite list (id, name, hostname) for the authenticated organisation.
+     */
+    public function getMicrositeList(Request $request, SiteService $site): JsonResponse
+    {
+        try {
+            $response = $site->micrositeList($request->user());
+
+            return $this->success(
+                __('messages.microsite_list'),
+                [
+                    'sites' => MicrositeListResource::collection($response['sites']),
                 ],
             );
         } catch (Throwable $exception) {
