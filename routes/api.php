@@ -36,6 +36,8 @@ use App\Http\Responses\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+// Test 
+
 Route::get('/php-config-check', function () {
     return response()->json([
         'php_version' => PHP_VERSION,
